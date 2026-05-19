@@ -1,0 +1,17 @@
+{
+  "name": "Agenda TU/e",
+  "short_name": "Agenda TU/e",
+  "description": "Agenda personal de Juan para clases, calendario, deporte, tareas e IA.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f5f1",
+  "theme_color": "#c94028",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
