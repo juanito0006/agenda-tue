@@ -726,19 +726,18 @@ export default function App() {
 
   function addStudyTimer(timer = timerDraft) {
     if (!timer.title.trim()) return;
+    const newTimer: StudyTimer = {
+      id: crypto.randomUUID(),
+      title: timer.title.trim(),
+      focusMinutes: Math.max(1, Number(timer.focusMinutes)),
+      breakMinutes: Math.max(1, Number(timer.breakMinutes)),
+      cycles: Math.max(1, Number(timer.cycles)),
+    };
     updateData((current) => ({
       ...current,
-      studyTimers: [
-        {
-          id: crypto.randomUUID(),
-          title: timer.title.trim(),
-          focusMinutes: Math.max(1, Number(timer.focusMinutes)),
-          breakMinutes: Math.max(1, Number(timer.breakMinutes)),
-          cycles: Math.max(1, Number(timer.cycles)),
-        },
-        ...current.studyTimers,
-      ],
+      studyTimers: [newTimer, ...current.studyTimers],
     }));
+    startStudyTimer(newTimer);
     setTimerDraft({ title: "", focusMinutes: 25, breakMinutes: 5, cycles: 4 });
   }
 
@@ -2241,27 +2240,37 @@ function FocusView({
   resetTimer: () => void;
 }) {
   const activeTimer = timers.find((timer) => timer.id === activeTimerId);
+  const playableTimer = activeTimer ?? timers[0];
+
+  function toggleTimer() {
+    if (!playableTimer) return;
+    if (!activeTimer || remainingSeconds <= 0) {
+      startTimer(playableTimer, "focus");
+      return;
+    }
+    setRunning(!running);
+  }
 
   return (
     <div className="focus-layout">
       <section className="panel wide focus-hero">
         <PanelHeader icon={Timer} title="Temporizador activo" />
         <div className="timer-display">
-          <span>{activeTimer ? activeTimer.title : "Elige un timer"}</span>
+          <span>{playableTimer ? playableTimer.title : "Elige un timer"}</span>
           <strong>{formatTimer(remainingSeconds)}</strong>
           <small>{timerMode === "focus" ? "Focus" : "Descanso"}</small>
         </div>
         <div className="timer-actions">
-          <button className="primary" disabled={!activeTimer} onClick={() => setRunning(!running)}>
+          <button className="primary" disabled={!playableTimer} onClick={toggleTimer}>
             {running ? <Pause size={18} /> : <Play size={18} />}
             {running ? "Pausar" : "Empezar"}
           </button>
-          <button className="secondary-action compact-action" disabled={!activeTimer} onClick={resetTimer}>
+          <button className="secondary-action compact-action" disabled={!playableTimer} onClick={resetTimer}>
             <RotateCcw size={17} />
             Reset
           </button>
-          {activeTimer && (
-            <button className="secondary-action compact-action" onClick={() => startTimer(activeTimer, timerMode === "focus" ? "break" : "focus")}>
+          {playableTimer && (
+            <button className="secondary-action compact-action" onClick={() => startTimer(playableTimer, timerMode === "focus" ? "break" : "focus")}>
               {timerMode === "focus" ? "Descanso" : "Focus"}
             </button>
           )}
