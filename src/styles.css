@@ -352,7 +352,8 @@ textarea {
 .ai-layout,
 .utility-layout,
 .focus-layout,
-.customize-layout {
+.customize-layout,
+.recipes-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
@@ -633,7 +634,8 @@ textarea {
 .sport-form,
 .reminder-form,
 .note-form,
-.timer-form {
+.timer-form,
+.recipe-form {
   display: grid;
   gap: 10px;
   margin-bottom: 14px;
@@ -683,6 +685,10 @@ textarea {
   grid-template-columns: minmax(240px, 1fr) 120px 120px 100px 120px;
 }
 
+.recipe-form {
+  grid-template-columns: minmax(220px, 1fr) 140px 90px 90px 90px 100px 120px;
+}
+
 .routine-form {
   grid-template-columns: 150px 120px 120px 130px minmax(220px, 1fr) 120px;
 }
@@ -725,7 +731,8 @@ textarea {
 .ai-history-item button,
 .reminder-card button,
 .quick-note button,
-.timer-card button {
+.timer-card button,
+.recipe-card button {
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -918,6 +925,73 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.recipe-context,
+.recipe-meta,
+.recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recipe-context {
+  margin-bottom: 12px;
+}
+
+.recipe-context span,
+.recipe-meta span {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #fbfaf6;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.recipe-suggestions,
+.recipe-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.recipe-suggestions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.recipe-suggestion,
+.recipe-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.recipe-suggestion span,
+.recipe-suggestion small {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.recipe-card {
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.recipe-card header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 8px;
+}
+
+.recipe-card textarea {
+  min-height: 86px;
+}
+
+.recipe-hints {
+  margin: -6px 0 12px;
 }
 
 .ai-settings {
@@ -1414,7 +1488,8 @@ textarea {
   .sport-form,
   .routine-form,
   .reminder-form,
-  .timer-form {
+  .timer-form,
+  .recipe-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -1427,7 +1502,8 @@ textarea {
   }
 
   .preset-grid,
-  .notes-grid {
+  .notes-grid,
+  .recipe-suggestions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1471,7 +1547,8 @@ textarea {
     .ai-layout,
     .utility-layout,
     .focus-layout,
-    .customize-layout {
+    .customize-layout,
+    .recipes-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1519,11 +1596,14 @@ textarea {
     .reminder-form,
     .note-form,
     .timer-form,
+    .recipe-form,
     .split-fields,
     .platform-grid,
     .course-grid,
     .preset-grid,
-    .notes-grid {
+    .notes-grid,
+    .recipe-suggestions,
+    .recipe-grid {
     grid-template-columns: 1fr;
   }
 

@@ -33,7 +33,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase, type AuthSession } from "./supabaseClient";
 
-type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "sport" | "platforms" | "customize" | "ai" | "day";
+type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "recipes" | "sport" | "platforms" | "customize" | "ai" | "day";
 type Priority = "normal" | "deadline" | "exam" | "lab";
 type TaskCategory = "estudio" | "personal" | "admin" | "salud";
 type RoutineType = "clase" | "estudio" | "deporte" | "personal";
@@ -148,6 +148,20 @@ interface StudyTimer {
   cycles: number;
 }
 
+interface Recipe {
+  id: string;
+  title: string;
+  ingredients: string;
+  method: string;
+  prepMinutes: number;
+  cookMinutes: number;
+  totalMinutes: number;
+  servings: number;
+  steps: string;
+  notes: string;
+  favorite: boolean;
+}
+
 interface UserProfile {
   appName: string;
   appLogo: string;
@@ -172,6 +186,7 @@ interface AgendaData {
   reminders: Reminder[];
   quickNotes: QuickNote[];
   studyTimers: StudyTimer[];
+  recipes: Recipe[];
 }
 
 const STORAGE_KEY = "open-agenda-data-v1";
@@ -185,6 +200,42 @@ const studyPresets = [
   { title: "Bloque profundo", focusMinutes: 50, breakMinutes: 10, cycles: 2 },
   { title: "Sprint corto", focusMinutes: 15, breakMinutes: 3, cycles: 3 },
   { title: "Repaso examen", focusMinutes: 40, breakMinutes: 8, cycles: 3 },
+];
+const recipeMethods = ["Sartén", "Horno", "Airfryer", "Olla", "Microondas", "Sin cocinar"];
+const defaultRecipeSuggestions: Array<Omit<Recipe, "id" | "favorite">> = [
+  {
+    title: "Bowl rápido de arroz y huevo",
+    ingredients: "Arroz, huevos, verduras, salsa de soja, aceite",
+    method: "Sartén",
+    prepMinutes: 5,
+    cookMinutes: 15,
+    totalMinutes: 20,
+    servings: 1,
+    steps: "Calienta arroz. Saltea verduras. Haz huevos. Junta todo con salsa.",
+    notes: "Buena para días con poco tiempo.",
+  },
+  {
+    title: "Pollo con patatas en airfryer",
+    ingredients: "Pollo, patatas, aceite, sal, pimienta, pimentón",
+    method: "Airfryer",
+    prepMinutes: 8,
+    cookMinutes: 22,
+    totalMinutes: 30,
+    servings: 2,
+    steps: "Corta patatas. Sazona todo. Cocina en airfryer removiendo a mitad.",
+    notes: "Buena después de deporte.",
+  },
+  {
+    title: "Pasta al horno fácil",
+    ingredients: "Pasta, tomate, queso, verduras, atún o pollo opcional",
+    method: "Horno",
+    prepMinutes: 10,
+    cookMinutes: 25,
+    totalMinutes: 35,
+    servings: 2,
+    steps: "Cuece pasta. Mezcla con salsa. Añade queso y hornea hasta dorar.",
+    notes: "Ideal para dejar comida hecha.",
+  },
 ];
 const eventTypeStyles: Record<EventType, { label: string; color: string; background: string }> = {
   clase: { label: "Clase", color: "#2666a3", background: "#eaf2fb" },
@@ -209,6 +260,7 @@ const initialData: AgendaData = {
   reminders: [],
   quickNotes: [],
   studyTimers: [],
+  recipes: [],
   profile: {
     appName: "Agenda",
     appLogo: "",
@@ -321,6 +373,7 @@ function normalizeData(parsed: Partial<AgendaData>): AgendaData {
     reminders: Array.isArray(parsed.reminders) ? parsed.reminders : [],
     quickNotes: Array.isArray(parsed.quickNotes) ? parsed.quickNotes : [],
     studyTimers: Array.isArray(parsed.studyTimers) ? parsed.studyTimers : [],
+    recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
     profile: {
       ...initialData.profile,
       ...(parsed.profile ?? {}),
@@ -358,6 +411,17 @@ export default function App() {
   const [reminderDraft, setReminderDraft] = useState({ title: "", date: todayKey(), time: "10:00", category: "personal", notes: "" });
   const [quickNoteDraft, setQuickNoteDraft] = useState({ title: "", content: "", color: noteColors[0] });
   const [timerDraft, setTimerDraft] = useState({ title: "", focusMinutes: 25, breakMinutes: 5, cycles: 4 });
+  const [recipeDraft, setRecipeDraft] = useState<Omit<Recipe, "id" | "favorite">>({
+    title: "",
+    ingredients: "",
+    method: "Sartén",
+    prepMinutes: 10,
+    cookMinutes: 15,
+    totalMinutes: 25,
+    servings: 1,
+    steps: "",
+    notes: "",
+  });
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
   const [timerMode, setTimerMode] = useState<"focus" | "break">("focus");
   const [remainingSeconds, setRemainingSeconds] = useState(25 * 60);
@@ -768,6 +832,54 @@ export default function App() {
     setRemainingSeconds(timer ? (timerMode === "focus" ? timer.focusMinutes : timer.breakMinutes) * 60 : 25 * 60);
   }
 
+  function addRecipe(recipe = recipeDraft) {
+    if (!recipe.title.trim()) return;
+    const prepMinutes = Math.max(0, Number(recipe.prepMinutes));
+    const cookMinutes = Math.max(0, Number(recipe.cookMinutes));
+    const totalMinutes = Math.max(1, Number(recipe.totalMinutes) || prepMinutes + cookMinutes || 1);
+    updateData((current) => ({
+      ...current,
+      recipes: [
+        {
+          id: crypto.randomUUID(),
+          title: recipe.title.trim(),
+          ingredients: recipe.ingredients.trim(),
+          method: recipe.method,
+          prepMinutes,
+          cookMinutes,
+          totalMinutes,
+          servings: Math.max(1, Number(recipe.servings)),
+          steps: recipe.steps.trim(),
+          notes: recipe.notes.trim(),
+          favorite: false,
+        },
+        ...current.recipes,
+      ],
+    }));
+    setRecipeDraft({
+      title: "",
+      ingredients: "",
+      method: "Sartén",
+      prepMinutes: 10,
+      cookMinutes: 15,
+      totalMinutes: 25,
+      servings: 1,
+      steps: "",
+      notes: "",
+    });
+  }
+
+  function patchRecipe(id: string, patch: Partial<Recipe>) {
+    updateData((current) => ({
+      ...current,
+      recipes: current.recipes.map((recipe) => (recipe.id === id ? { ...recipe, ...patch } : recipe)),
+    }));
+  }
+
+  function deleteRecipe(id: string) {
+    updateData((current) => ({ ...current, recipes: current.recipes.filter((recipe) => recipe.id !== id) }));
+  }
+
   function deleteCourseCalendar(id: string) {
     if (data.courseCalendars.length <= 1) return;
     const fallback = data.courseCalendars.find((calendar) => calendar.id !== id)?.id ?? "general";
@@ -978,6 +1090,7 @@ export default function App() {
     { id: "reminders", label: "Recordatorios", icon: Bell },
     { id: "notes", label: "Notas", icon: StickyNote },
     { id: "focus", label: "Focus", icon: Timer },
+    { id: "recipes", label: "Recetas", icon: Soup },
     { id: "sport", label: "Deporte", icon: Dumbbell },
     { id: "platforms", label: "Recursos", icon: Globe },
     { id: "customize", label: "Personalizar", icon: Save },
@@ -1152,6 +1265,20 @@ export default function App() {
             running={timerRunning}
             setRunning={setTimerRunning}
             resetTimer={resetActiveTimer}
+          />
+        )}
+
+        {view === "recipes" && (
+          <RecipesView
+            selectedDate={selectedDate}
+            recipes={data.recipes}
+            sports={data.sports}
+            meal={meal}
+            draft={recipeDraft}
+            setDraft={setRecipeDraft}
+            addRecipe={addRecipe}
+            patchRecipe={patchRecipe}
+            deleteRecipe={deleteRecipe}
           />
         )}
 
@@ -1463,6 +1590,7 @@ function viewTitle(view: View) {
     reminders: "Recordatorios",
     notes: "Notas rápidas",
     focus: "Focus de estudio",
+    recipes: "Recetas",
     sport: "Deporte",
     platforms: "Recursos",
     customize: "Personalización",
@@ -2428,6 +2556,166 @@ function FocusView({
             </article>
           ))}
         </div>
+      </section>
+    </div>
+  );
+}
+
+function getRecipeSuggestions(recipes: Recipe[], selectedDate: string, sports: SportEntry[], meal: MealLog) {
+  const hasWorkout = sports.some((entry) => entry.date === selectedDate);
+  const isWeekend = weekdayIndex(selectedDate) >= 5;
+  const emptyMealSlots = [meal.breakfast, meal.lunch, meal.dinner, meal.snacks].filter((slot) => !slot.trim()).length;
+
+  if (recipes.length === 0) {
+    return defaultRecipeSuggestions.map((recipe, index) => ({ ...recipe, id: `suggestion-${index}`, favorite: false }));
+  }
+
+  const scored = recipes.map((recipe) => {
+    const text = `${recipe.title} ${recipe.ingredients} ${recipe.notes}`.toLowerCase();
+    const protein = ["pollo", "huevo", "huevos", "atún", "atun", "tofu", "yogur", "legumbre", "garbanzo", "lenteja"].some((word) => text.includes(word));
+    let score = recipe.favorite ? 3 : 0;
+    if (hasWorkout && protein) score += 4;
+    if (isWeekend && recipe.totalMinutes >= 30) score += 3;
+    if (!isWeekend && recipe.totalMinutes <= 25) score += 3;
+    if (emptyMealSlots >= 2) score += 1;
+    return { recipe, score };
+  });
+
+  return scored.sort((a, b) => b.score - a.score || a.recipe.totalMinutes - b.recipe.totalMinutes).slice(0, 4).map((item) => item.recipe);
+}
+
+function RecipesView({
+  selectedDate,
+  recipes,
+  sports,
+  meal,
+  draft,
+  setDraft,
+  addRecipe,
+  patchRecipe,
+  deleteRecipe,
+}: {
+  selectedDate: string;
+  recipes: Recipe[];
+  sports: SportEntry[];
+  meal: MealLog;
+  draft: Omit<Recipe, "id" | "favorite">;
+  setDraft: (draft: Omit<Recipe, "id" | "favorite">) => void;
+  addRecipe: (recipe?: Omit<Recipe, "id" | "favorite">) => void;
+  patchRecipe: (id: string, patch: Partial<Recipe>) => void;
+  deleteRecipe: (id: string) => void;
+}) {
+  const suggestions = getRecipeSuggestions(recipes, selectedDate, sports, meal);
+  const hasWorkout = sports.some((entry) => entry.date === selectedDate);
+  const isWeekend = weekdayIndex(selectedDate) >= 5;
+
+  return (
+    <div className="recipes-layout">
+      <section className="summary-band">
+        <Metric label="Recetas" value={recipes.length} />
+        <Metric label="Favoritas" value={recipes.filter((recipe) => recipe.favorite).length} />
+        <Metric label="Airfryer" value={recipes.filter((recipe) => recipe.method === "Airfryer").length} />
+        <Metric label="≤ 25 min" value={recipes.filter((recipe) => recipe.totalMinutes <= 25).length} />
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Soup} title="Sugerencias para este día" />
+        <div className="recipe-context">
+          <span>{formatDate(selectedDate)} · {isWeekend ? "día con más margen" : "día rápido"}</span>
+          {hasWorkout && <span>Hay deporte este día: priorizo recetas con proteína.</span>}
+        </div>
+        <div className="recipe-suggestions">
+          {suggestions.map((recipe) => (
+            <article key={recipe.id} className="recipe-suggestion">
+              <strong>{recipe.title}</strong>
+              <span>{recipe.method} · {recipe.totalMinutes} min · {recipe.servings} raciones</span>
+              <small>{recipe.ingredients}</small>
+              {recipe.id.startsWith("suggestion-") && (
+                <button className="secondary-action compact-action" onClick={() => setDraft({
+                  title: recipe.title,
+                  ingredients: recipe.ingredients,
+                  method: recipe.method,
+                  prepMinutes: recipe.prepMinutes,
+                  cookMinutes: recipe.cookMinutes,
+                  totalMinutes: recipe.totalMinutes,
+                  servings: recipe.servings,
+                  steps: recipe.steps,
+                  notes: recipe.notes,
+                })}>
+                  Usar como base
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Plus} title="Añadir receta" />
+        <div className="recipe-form">
+          <input value={draft.title} placeholder="Nombre de la receta" onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <select value={draft.method} onChange={(event) => setDraft({ ...draft, method: event.target.value })}>
+            {recipeMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+          </select>
+          <input type="number" min="0" value={draft.prepMinutes} onChange={(event) => setDraft({ ...draft, prepMinutes: Number(event.target.value) })} />
+          <input type="number" min="0" value={draft.cookMinutes} onChange={(event) => setDraft({ ...draft, cookMinutes: Number(event.target.value) })} />
+          <input type="number" min="1" value={draft.totalMinutes} onChange={(event) => setDraft({ ...draft, totalMinutes: Number(event.target.value) })} />
+          <input type="number" min="1" value={draft.servings} onChange={(event) => setDraft({ ...draft, servings: Number(event.target.value) })} />
+          <button className="primary" onClick={() => addRecipe()}>
+            <Plus size={18} />
+            Añadir
+          </button>
+        </div>
+        <div className="form-hints recipe-hints">
+          <span>Prep</span>
+          <span>Cocinar</span>
+          <span>Total</span>
+          <span>Raciones</span>
+        </div>
+        <label className="field">
+          <span>Ingredientes</span>
+          <textarea value={draft.ingredients} placeholder="Ej. arroz, huevos, verduras, pollo..." onChange={(event) => setDraft({ ...draft, ingredients: event.target.value })} />
+        </label>
+        <label className="field">
+          <span>Pasos</span>
+          <textarea value={draft.steps} placeholder="1. Corta... 2. Cocina... 3. Sirve..." onChange={(event) => setDraft({ ...draft, steps: event.target.value })} />
+        </label>
+        <Field label="Notas" value={draft.notes} placeholder="Meal prep, barato, post-gym, cena ligera..." onChange={(value) => setDraft({ ...draft, notes: value })} />
+      </section>
+
+      <section className="recipe-grid">
+        {recipes.length === 0 ? (
+          <section className="panel wide">
+            <Empty text="Aún no hay recetas guardadas. Añade una o usa una sugerencia como base." />
+          </section>
+        ) : recipes.map((recipe) => (
+          <article key={recipe.id} className="recipe-card">
+            <header>
+              <input value={recipe.title} onChange={(event) => patchRecipe(recipe.id, { title: event.target.value })} />
+              <button title="Eliminar receta" onClick={() => deleteRecipe(recipe.id)}>
+                <Trash2 size={16} />
+              </button>
+            </header>
+            <div className="recipe-meta">
+              <span>{recipe.method}</span>
+              <span>{recipe.totalMinutes} min</span>
+              <span>{recipe.servings} raciones</span>
+            </div>
+            <label className="field">
+              <span>Ingredientes</span>
+              <textarea value={recipe.ingredients} onChange={(event) => patchRecipe(recipe.id, { ingredients: event.target.value })} />
+            </label>
+            <label className="field">
+              <span>Pasos</span>
+              <textarea value={recipe.steps} onChange={(event) => patchRecipe(recipe.id, { steps: event.target.value })} />
+            </label>
+            <div className="recipe-actions">
+              <button className={recipe.favorite ? "primary compact-action" : "secondary-action compact-action"} onClick={() => patchRecipe(recipe.id, { favorite: !recipe.favorite })}>
+                {recipe.favorite ? "Favorita" : "Marcar favorita"}
+              </button>
+            </div>
+          </article>
+        ))}
       </section>
     </div>
   );
