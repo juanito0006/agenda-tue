@@ -12,6 +12,7 @@
   Dumbbell,
   Globe,
   Layers,
+  Link,
   LayoutDashboard,
   LogIn,
   LogOut,
@@ -108,6 +109,20 @@ interface AiChatMessage {
   createdAt: string;
 }
 
+interface QuickLink {
+  id: string;
+  name: string;
+  url: string;
+  description: string;
+}
+
+interface UserProfile {
+  displayName: string;
+  institutionType: string;
+  institutionName: string;
+  quickLinks: QuickLink[];
+}
+
 interface AgendaData {
   tasks: Task[];
   courseCalendars: CourseCalendar[];
@@ -118,46 +133,14 @@ interface AgendaData {
   sports: SportEntry[];
   aiMessages: AiChatMessage[];
   notes: Record<string, DailyNote>;
+  profile: UserProfile;
 }
 
-const STORAGE_KEY = "agenda-tue-data-v1";
+const STORAGE_KEY = "open-agenda-data-v1";
 const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const fullWeekdays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const hours = Array.from({ length: 15 }, (_, index) => index + 7);
 const colors = ["#c94028", "#2666a3", "#157f63", "#be8427", "#6d5bd0", "#0f8a91"];
-const platforms = [
-  {
-    name: "TimeEdit",
-    url: "https://cloud.timeedit.net/nl_tue/web/stud01/",
-    domain: "cloud.timeedit.net",
-    description: "Horarios y planificación de clases.",
-  },
-  {
-    name: "Gmail",
-    url: "https://mail.google.com/",
-    domain: "gmail.com",
-    logo: "https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico",
-    description: "Correo personal y mensajes importantes.",
-  },
-  {
-    name: "Canvas TU/e",
-    url: "https://canvas.tue.nl/",
-    domain: "canvas.tue.nl",
-    description: "Courses, assignments y announcements.",
-  },
-  {
-    name: "Osiris",
-    url: "https://engine.surfconext.nl/authentication/sp/consume-assertion",
-    domain: "surfconext.nl",
-    description: "Portal académico y registros.",
-  },
-  {
-    name: "Education Guide",
-    url: "https://educationguide.tue.nl/programs/bachelor-college/majors/bachelor-mechanical-engineering",
-    domain: "educationguide.tue.nl",
-    description: "Bachelor Mechanical Engineering guide.",
-  },
-];
 const eventTypeStyles: Record<EventType, { label: string; color: string; background: string }> = {
   clase: { label: "Clase", color: "#2666a3", background: "#eaf2fb" },
   estudio: { label: "Estudio", color: "#157f63", background: "#e8f5f0" },
@@ -168,46 +151,22 @@ const eventTypeStyles: Record<EventType, { label: string; color: string; backgro
   personal: { label: "Personal", color: "#0f8a91", background: "#e8f7f8" },
 };
 
-const defaultCourseCalendars: CourseCalendar[] = [
-  { id: "etchis", name: "Etchis", color: "#c94028", location: "TU/e", notes: "" },
-  { id: "energy-storage-cbl", name: "Energy storage system CBL", color: "#2666a3", location: "TU/e", notes: "" },
-  { id: "signals-systems", name: "Signals and Systems", color: "#157f63", location: "TU/e", notes: "" },
-];
-
 const initialData: AgendaData = {
-  tasks: [
-    {
-      id: crypto.randomUUID(),
-      title: "Preparar bloques de estudio de Energy Systems",
-      date: todayKey(),
-      completed: false,
-      priority: "deadline",
-      category: "estudio",
-      notes: "Divide en teoría, ejercicios y resumen.",
-    },
-  ],
-  courseCalendars: defaultCourseCalendars,
-  events: [
-    {
-      id: crypto.randomUUID(),
-      title: "Energy storage CBL",
-      date: todayKey(),
-      start: "10:00",
-      end: "12:00",
-      calendarId: "energy-storage-cbl",
-      type: "clase",
-      notes: "",
-    },
-  ],
-  routine: [
-    { id: crypto.randomUUID(), weekday: 0, start: "09:00", end: "11:00", type: "clase", title: "Lecture / campus" },
-    { id: crypto.randomUUID(), weekday: 3, start: "17:30", end: "18:30", type: "deporte", title: "Gym / running" },
-  ],
+  tasks: [],
+  courseCalendars: [],
+  events: [],
+  routine: [],
   meals: {},
   workouts: {},
   sports: [],
   aiMessages: [],
   notes: {},
+  profile: {
+    displayName: "",
+    institutionType: "Universidad",
+    institutionName: "",
+    quickLinks: [],
+  },
 };
 
 function todayKey(date = new Date()) {
@@ -289,9 +248,7 @@ function createEmptyNote(date: string): DailyNote {
 }
 
 function normalizeData(parsed: Partial<AgendaData>): AgendaData {
-  const calendars = Array.isArray(parsed.courseCalendars) && parsed.courseCalendars.length > 0
-    ? parsed.courseCalendars
-    : defaultCourseCalendars;
+  const calendars = Array.isArray(parsed.courseCalendars) ? parsed.courseCalendars : [];
 
   const normalizedEvents = Array.isArray(parsed.events)
     ? parsed.events.map((event) => ({
@@ -310,6 +267,11 @@ function normalizeData(parsed: Partial<AgendaData>): AgendaData {
     sports: Array.isArray(parsed.sports) ? parsed.sports : [],
     aiMessages: Array.isArray(parsed.aiMessages) ? parsed.aiMessages : [],
     notes: parsed.notes ?? {},
+    profile: {
+      ...initialData.profile,
+      ...(parsed.profile ?? {}),
+      quickLinks: Array.isArray(parsed.profile?.quickLinks) ? parsed.profile.quickLinks : [],
+    },
   };
 }
 
@@ -333,11 +295,12 @@ export default function App() {
     date: todayKey(),
     start: "09:00",
     end: "10:00",
-    calendarId: defaultCourseCalendars[0].id,
+    calendarId: "general",
     type: "clase" as EventType,
     notes: "",
   });
-  const [courseDraft, setCourseDraft] = useState({ name: "", color: colors[3], location: "TU/e", notes: "" });
+  const [courseDraft, setCourseDraft] = useState({ name: "", color: colors[3], location: "", notes: "" });
+  const [quickLinkDraft, setQuickLinkDraft] = useState({ name: "", url: "", description: "" });
   const [aiDraft, setAiDraft] = useState("Dame una receta fácil con arroz, huevos y algo de verdura.");
   const [aiApiKey, setAiApiKey] = useState(() => localStorage.getItem("agenda-tue-openai-key") ?? "");
   const [aiModel, setAiModel] = useState(() => localStorage.getItem("agenda-tue-ai-model") ?? "gpt-5.2");
@@ -411,9 +374,10 @@ export default function App() {
       if (row?.data) {
         setData(normalizeData(row.data as Partial<AgendaData>));
       } else {
+        setData(initialData);
         const { error: saveError } = await client
           .from("user_agendas")
-          .upsert({ user_id: userId, data, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+          .upsert({ user_id: userId, data: initialData, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
         if (saveError) {
           setSyncStatus(`Error nube: ${saveError.message}`);
           return;
@@ -569,7 +533,7 @@ export default function App() {
         { id: crypto.randomUUID(), ...courseDraft, name: courseDraft.name.trim() },
       ],
     }));
-    setCourseDraft({ name: "", color: colors[(data.courseCalendars.length + 1) % colors.length], location: "TU/e", notes: "" });
+    setCourseDraft({ name: "", color: colors[(data.courseCalendars.length + 1) % colors.length], location: "", notes: "" });
   }
 
   function patchCourseCalendar(id: string, patch: Partial<CourseCalendar>) {
@@ -579,9 +543,47 @@ export default function App() {
     }));
   }
 
+  function patchProfile(patch: Partial<UserProfile>) {
+    updateData((current) => ({
+      ...current,
+      profile: { ...current.profile, ...patch },
+    }));
+  }
+
+  function addQuickLink() {
+    if (!quickLinkDraft.name.trim() || !quickLinkDraft.url.trim()) return;
+    const normalizedUrl = quickLinkDraft.url.match(/^https?:\/\//i) ? quickLinkDraft.url.trim() : `https://${quickLinkDraft.url.trim()}`;
+    updateData((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        quickLinks: [
+          ...current.profile.quickLinks,
+          {
+            id: crypto.randomUUID(),
+            name: quickLinkDraft.name.trim(),
+            url: normalizedUrl,
+            description: quickLinkDraft.description.trim(),
+          },
+        ],
+      },
+    }));
+    setQuickLinkDraft({ name: "", url: "", description: "" });
+  }
+
+  function deleteQuickLink(id: string) {
+    updateData((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        quickLinks: current.profile.quickLinks.filter((item) => item.id !== id),
+      },
+    }));
+  }
+
   function deleteCourseCalendar(id: string) {
     if (data.courseCalendars.length <= 1) return;
-    const fallback = data.courseCalendars.find((calendar) => calendar.id !== id)?.id ?? data.courseCalendars[0].id;
+    const fallback = data.courseCalendars.find((calendar) => calendar.id !== id)?.id ?? "general";
     updateData((current) => ({
       ...current,
       courseCalendars: current.courseCalendars.filter((calendar) => calendar.id !== id),
@@ -613,8 +615,8 @@ export default function App() {
         },
         body: JSON.stringify({
           model: aiModel.trim() || "gpt-5.2",
-          instructions: "Eres una IA simple dentro de una agenda personal de Juan. Responde en español, claro y directo. Ayuda con recetas, ideas de comida, estudio, deporte y organización diaria. Si te preguntan por salud o dietas estrictas, da consejos generales y recomienda consultar a un profesional cuando haga falta.",
-          input: conversation.map((message) => `${message.role === "user" ? "Juan" : "IA"}: ${message.content}`).join("\n\n"),
+          instructions: "Eres una IA simple dentro de una agenda personal. Responde en español, claro y directo. Ayuda con recetas, ideas de comida, estudio, deporte y organización diaria. Si te preguntan por salud o dietas estrictas, da consejos generales y recomienda consultar a un profesional cuando haga falta.",
+          input: conversation.map((message) => `${message.role === "user" ? "Usuario" : "IA"}: ${message.content}`).join("\n\n"),
         }),
       });
       const result = await response.json();
@@ -763,21 +765,34 @@ export default function App() {
   const navItems: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "calendar", label: "Calendario", icon: CalendarDays },
-    { id: "courses", label: "Asignaturas", icon: Layers },
+    { id: "courses", label: "Materias", icon: Layers },
     { id: "sport", label: "Deporte", icon: Dumbbell },
-    { id: "platforms", label: "Platforms", icon: Globe },
+    { id: "platforms", label: "Recursos", icon: Globe },
     { id: "ai", label: "IA", icon: Bot },
     { id: "day", label: "Día", icon: ClipboardList },
   ];
+
+  if (!session) {
+    return (
+      <LoginScreen
+        draft={authDraft}
+        setDraft={setAuthDraft}
+        loading={authLoading}
+        syncStatus={syncStatus}
+        signIn={signIn}
+        signUp={signUp}
+      />
+    );
+  }
 
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">TU/e</span>
+          <span className="brand-mark">A</span>
           <div>
-            <strong>Agenda personal</strong>
-            <span>Mechanical Energy</span>
+            <strong>Agenda</strong>
+            <span>{data.profile.institutionName || "Organización personal"}</span>
           </div>
         </div>
         <AuthPanel
@@ -839,6 +854,7 @@ export default function App() {
             events={weekEvents}
             sports={weekSports}
             calendars={data.courseCalendars}
+            profile={data.profile}
             stats={stats}
             onOpenCalendar={() => setView("calendar")}
             onOpenDay={(day) => {
@@ -872,6 +888,8 @@ export default function App() {
             addCourseCalendar={addCourseCalendar}
             patchCourseCalendar={patchCourseCalendar}
             deleteCourseCalendar={deleteCourseCalendar}
+            profile={data.profile}
+            patchProfile={patchProfile}
           />
         )}
 
@@ -887,7 +905,13 @@ export default function App() {
         )}
 
         {view === "platforms" && (
-          <PlatformsView />
+          <PlatformsView
+            profile={data.profile}
+            draft={quickLinkDraft}
+            setDraft={setQuickLinkDraft}
+            addQuickLink={addQuickLink}
+            deleteQuickLink={deleteQuickLink}
+          />
         )}
 
         {view === "ai" && (
@@ -933,6 +957,64 @@ export default function App() {
           />
         )}
 
+      </section>
+    </main>
+  );
+}
+
+function LoginScreen({
+  draft,
+  setDraft,
+  loading,
+  syncStatus,
+  signIn,
+  signUp,
+}: {
+  draft: { email: string; password: string };
+  setDraft: (draft: { email: string; password: string }) => void;
+  loading: boolean;
+  syncStatus: string;
+  signIn: () => void;
+  signUp: () => void;
+}) {
+  return (
+    <main className="login-screen">
+      <section className="login-card">
+        <div className="login-brand">
+          <span className="brand-mark">A</span>
+          <div>
+            <strong>Agenda</strong>
+            <span>Calendario, tareas, comida, deporte y notas</span>
+          </div>
+        </div>
+        <h1>Organiza tu día desde cualquier dispositivo</h1>
+        <p>Inicia sesión para sincronizar tu agenda entre móvil, ordenador y PWA instalada.</p>
+        {!hasSupabaseConfig && <p className="login-warning">Login sin configurar. Añade Supabase para publicar la app con cuentas reales.</p>}
+        <div className="login-form">
+          <input
+            type="email"
+            value={draft.email}
+            placeholder="Email"
+            onChange={(event) => setDraft({ ...draft, email: event.target.value })}
+          />
+          <input
+            type="password"
+            value={draft.password}
+            placeholder="Contraseña"
+            onChange={(event) => setDraft({ ...draft, password: event.target.value })}
+            onKeyDown={(event) => event.key === "Enter" && signIn()}
+          />
+          <div className="login-actions">
+            <button className="primary" onClick={signIn} disabled={loading || !hasSupabaseConfig}>
+              <LogIn size={18} />
+              Entrar
+            </button>
+            <button className="secondary-action compact-action" onClick={signUp} disabled={loading || !hasSupabaseConfig}>
+              Crear cuenta
+            </button>
+          </div>
+          <small>{syncStatus}</small>
+        </div>
       </section>
     </main>
   );
@@ -1020,9 +1102,9 @@ function viewTitle(view: View) {
   return {
     dashboard: "Dashboard semanal",
     calendar: "Calendario semanal",
-    courses: "Calendarios de asignaturas",
+    courses: "Materias y centro",
     sport: "Deporte",
-    platforms: "Platforms",
+    platforms: "Recursos",
     ai: "Preguntas de IA",
     day: "Plan del día",
   }[view];
@@ -1035,6 +1117,7 @@ function Dashboard({
   events,
   sports,
   calendars,
+  profile,
   stats,
   onOpenCalendar,
   onOpenDay,
@@ -1046,6 +1129,7 @@ function Dashboard({
   events: CalendarEvent[];
   sports: SportEntry[];
   calendars: CourseCalendar[];
+  profile: UserProfile;
   stats: { openTasks: Task[]; urgentTasks: Task[]; completedThisWeek: number; sportMinutes: number };
   onOpenCalendar: () => void;
   onOpenDay: (day: string) => void;
@@ -1060,12 +1144,13 @@ function Dashboard({
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
   const todayEvents = events.filter((event) => event.date === todayKey()).length;
   const todayTasks = tasks.filter((task) => task.date === todayKey() && !task.completed).length;
+  const displayName = profile.displayName.trim() || "bienvenido";
   return (
     <div className="dashboard-grid">
       <section className="welcome-panel">
         <div>
           <span>Hoy es {formatDate(todayKey())}</span>
-          <h2>Bienvenido, Juan</h2>
+          <h2>{displayName === "bienvenido" ? "Bienvenido" : `Hola, ${displayName}`}</h2>
         </div>
         <strong>{todayEvents} eventos · {todayTasks} tareas pendientes</strong>
       </section>
@@ -1103,9 +1188,9 @@ function Dashboard({
       </section>
 
       <section className="panel">
-        <PanelHeader icon={Layers} title="Asignaturas" />
+        <PanelHeader icon={Layers} title="Materias" />
         <div className="calendar-list">
-          {calendars.map((calendar) => (
+          {calendars.length === 0 ? <Empty text="Añade tus materias, módulos o clases desde la sección Materias." /> : calendars.map((calendar) => (
             <div key={calendar.id} className="legend-row">
               <i style={{ background: calendar.color }} />
               <span>{calendar.name}</span>
@@ -1169,11 +1254,12 @@ function CalendarView({
       <section className="panel wide">
         <PanelHeader icon={Plus} title="Añadir evento al calendario" />
         <div className="event-form">
-          <input value={draft.title} placeholder="Clase, práctica, deadline..." onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <input value={draft.title} placeholder="Clase, turno, deadline, cita..." onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
           <input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
           <input type="time" value={draft.start} onChange={(event) => setDraft({ ...draft, start: event.target.value })} />
           <input type="time" value={draft.end} onChange={(event) => setDraft({ ...draft, end: event.target.value })} />
           <select value={draft.calendarId} onChange={(event) => setDraft({ ...draft, calendarId: event.target.value })}>
+            <option value="general">General</option>
             {calendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name}</option>)}
           </select>
           <select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as EventType })}>
@@ -1207,10 +1293,10 @@ function CalendarView({
         <div className="calendar-toolbar">
           <div>
             <h2>{mode === "day" ? formatDate(selectedDate) : mode === "week" ? "Semana" : monthLabel}</h2>
-            <span>{mode === "day" ? "Vista del d?a seleccionado" : mode === "week" ? "Vista por horas" : "Vista del mes completo"}</span>
+            <span>{mode === "day" ? "Vista del día seleccionado" : mode === "week" ? "Vista por horas" : "Vista del mes completo"}</span>
           </div>
           <div className="segmented-control" aria-label="Cambiar vista de calendario">
-            <button className={mode === "day" ? "active" : ""} onClick={() => setMode("day")}>D?a</button>
+            <button className={mode === "day" ? "active" : ""} onClick={() => setMode("day")}>Día</button>
             <button className={mode === "week" ? "active" : ""} onClick={() => setMode("week")}>Semana</button>
             <button className={mode === "month" ? "active" : ""} onClick={() => setMode("month")}>Mes</button>
           </div>
@@ -1248,7 +1334,7 @@ function CalendarView({
                 >
                   <strong>{event.title}</strong>
                   <span>{event.start} - {event.end}</span>
-                  <small>{typeStyle.label} ? {calendar?.name ?? "General"}</small>
+                  <small>{typeStyle.label} · {calendar?.name ?? "General"}</small>
                   <button title="Eliminar evento" onClick={() => deleteEvent(event.id)}>
                     <Trash2 size={14} />
                   </button>
@@ -1360,6 +1446,8 @@ function CoursesView({
   addCourseCalendar,
   patchCourseCalendar,
   deleteCourseCalendar,
+  profile,
+  patchProfile,
 }: {
   calendars: CourseCalendar[];
   events: CalendarEvent[];
@@ -1368,14 +1456,33 @@ function CoursesView({
   addCourseCalendar: () => void;
   patchCourseCalendar: (id: string, patch: Partial<CourseCalendar>) => void;
   deleteCourseCalendar: (id: string) => void;
+  profile: UserProfile;
+  patchProfile: (patch: Partial<UserProfile>) => void;
 }) {
   return (
     <div className="courses-layout">
       <section className="panel wide">
-        <PanelHeader icon={Layers} title="Añadir calendario de clase" />
+        <PanelHeader icon={Layers} title="Tu centro" />
+        <div className="course-form profile-form">
+          <input value={profile.displayName} placeholder="Tu nombre visible" onChange={(event) => patchProfile({ displayName: event.target.value })} />
+          <select value={profile.institutionType} onChange={(event) => patchProfile({ institutionType: event.target.value })}>
+            <option value="Universidad">Universidad</option>
+            <option value="Instituto">Instituto</option>
+            <option value="Colegio">Colegio</option>
+            <option value="Formación profesional">Formación profesional</option>
+            <option value="Trabajo">Trabajo</option>
+            <option value="Personal">Personal</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <input value={profile.institutionName} placeholder="Nombre de tu universidad, instituto o centro" onChange={(event) => patchProfile({ institutionName: event.target.value })} />
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Layers} title="Añadir materia o calendario" />
         <div className="course-form">
-          <input value={draft.name} placeholder="Nombre de la asignatura" onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-          <input value={draft.location} placeholder="Aula / campus" onChange={(event) => setDraft({ ...draft, location: event.target.value })} />
+          <input value={draft.name} placeholder="Nombre: Matemáticas, Física, Trabajo..." onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+          <input value={draft.location} placeholder="Aula, campus, oficina o lugar" onChange={(event) => setDraft({ ...draft, location: event.target.value })} />
           <select value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })}>
             {colors.map((color) => <option key={color} value={color}>{color}</option>)}
           </select>
@@ -1387,7 +1494,11 @@ function CoursesView({
       </section>
 
       <section className="course-grid">
-        {calendars.map((calendar) => (
+        {calendars.length === 0 ? (
+          <section className="panel wide">
+            <Empty text="Aún no hay materias. Crea una para separar clases, trabajo, deadlines o proyectos por color." />
+          </section>
+        ) : calendars.map((calendar) => (
           <article key={calendar.id} className="panel course-card" style={{ borderTopColor: calendar.color }}>
             <div className="course-card-head">
               <span className="color-dot" style={{ background: calendar.color }} />
@@ -1409,26 +1520,76 @@ function CoursesView({
   );
 }
 
-function PlatformsView() {
+function getLinkHostname(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+function PlatformsView({
+  profile,
+  draft,
+  setDraft,
+  addQuickLink,
+  deleteQuickLink,
+}: {
+  profile: UserProfile;
+  draft: Omit<QuickLink, "id">;
+  setDraft: (draft: Omit<QuickLink, "id">) => void;
+  addQuickLink: () => void;
+  deleteQuickLink: (id: string) => void;
+}) {
   return (
     <div className="platforms-layout">
       <section className="panel wide">
-        <PanelHeader icon={Globe} title="Accesos rápidos" />
+        <PanelHeader icon={Plus} title="Añadir recurso" />
+        <div className="course-form">
+          <input value={draft.name} placeholder="Nombre: Gmail, Moodle, Canvas, Drive..." onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+          <input value={draft.url} placeholder="https://..." onChange={(event) => setDraft({ ...draft, url: event.target.value })} />
+          <input value={draft.description} placeholder="Descripción corta" onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+          <button className="primary" onClick={addQuickLink}>
+            <Plus size={18} />
+            Añadir
+          </button>
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Globe} title="Recursos guardados" />
         <div className="platform-grid">
-          {platforms.map((platform) => (
-            <a key={platform.name} className="platform-card" href={platform.url} target="_blank" rel="noreferrer">
+          {profile.quickLinks.length === 0 ? (
+            <div className="empty-resource">
+              <Plus size={22} />
+              <Empty text="Aún no hay links guardados. Pulsa añadir para crear tus accesos con logo automáticamente." />
+            </div>
+          ) : profile.quickLinks.map((platform) => {
+            const hostname = getLinkHostname(platform.url);
+            return (
+              <article key={platform.id} className="platform-card resource-card">
               <img
-                src={platform.logo ?? `https://www.google.com/s2/favicons?domain=${platform.domain}&sz=64`}
+                src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=64`}
                 alt=""
                 loading="lazy"
               />
               <div>
                 <strong>{platform.name}</strong>
                 <span>{platform.description}</span>
-                <small>{platform.domain}</small>
+                <small>{hostname}</small>
               </div>
-            </a>
-          ))}
+              <div className="resource-actions">
+                <a className="secondary-action compact-action" href={platform.url} target="_blank" rel="noreferrer">
+                  <Link size={16} />
+                  Abrir
+                </a>
+                <button title="Eliminar recurso" onClick={() => deleteQuickLink(platform.id)}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </article>
+            );
+          })}
         </div>
       </section>
     </div>
@@ -1508,7 +1669,7 @@ function AiView({
             <Empty text="Empieza preguntando algo: recetas, ideas de comida, estudio, deporte o planificación." />
           ) : messages.map((message) => (
             <article key={message.id} className={`chat-message ${message.role}`}>
-              <strong>{message.role === "user" ? "Juan" : "IA"}</strong>
+              <strong>{message.role === "user" ? "Tú" : "IA"}</strong>
               <p>{message.content}</p>
             </article>
           ))}
@@ -1570,7 +1731,7 @@ function buildAiPrompt({
   const urgentLines = urgentTasks.map((task) => `- ${task.date}: ${task.title} (${task.priority})`);
 
   return [
-    "Soy Juan, estudiante de Mechanical/Energy en TU/e Eindhoven.",
+    "Soy una persona usando una agenda personal para organizar estudio, trabajo, comida, deporte y tareas.",
     `Fecha seleccionada: ${formatDate(selectedDate)}.`,
     "",
     `Pregunta: ${draft || "Ayúdame con mi planificación."}`,
@@ -1794,7 +1955,7 @@ function DayView({
 
       <section className="panel wide">
         <PanelHeader icon={Save} title="Study focus y notas" />
-        <Field label="Study focus" value={note.studyFocus} onChange={(value) => patchNote({ studyFocus: value })} placeholder="Ej. Signals, Energy Storage, Etchis..." />
+        <Field label="Study focus" value={note.studyFocus} onChange={(value) => patchNote({ studyFocus: value })} placeholder="Ej. Física, proyecto, examen, trabajo..." />
         <div className="split-fields">
           <label className="field">
             <span>Energía</span>

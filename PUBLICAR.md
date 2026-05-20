@@ -1,4 +1,4 @@
-# Publicar Agenda TU/e
+# Publicar Agenda
 
 Esta app puede publicarse como web pública y también instalarse en móvil/escritorio como PWA.
 

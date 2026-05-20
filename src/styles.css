@@ -29,6 +29,71 @@ body {
   color: var(--ink);
 }
 
+.login-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: linear-gradient(180deg, #f6f5f1 0%, #eef8ff 100%);
+}
+
+.login-card {
+  width: min(560px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.login-brand strong,
+.login-brand span {
+  display: block;
+}
+
+.login-brand span,
+.login-card p,
+.login-form small {
+  color: var(--muted);
+}
+
+.login-card h1 {
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  line-height: 1;
+}
+
+.login-card p {
+  margin-top: 12px;
+  line-height: 1.55;
+}
+
+.login-warning {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff5df;
+  color: var(--yellow) !important;
+  font-weight: 700;
+}
+
+.login-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.login-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 button,
 input,
 select,
@@ -449,6 +514,10 @@ textarea {
   transition: 0.18s ease;
 }
 
+.resource-card {
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+}
+
 .platform-card:hover {
   border-color: #7cc5f2;
   background: #eef8ff;
@@ -481,6 +550,40 @@ textarea {
 .platform-card small {
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+.resource-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.resource-actions .secondary-action {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.resource-actions button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #f7e5df;
+  color: var(--accent-dark);
+}
+
+.empty-resource {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 96px;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+  color: var(--muted);
 }
 
 .task-row {

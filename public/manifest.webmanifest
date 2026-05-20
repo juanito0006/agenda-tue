@@ -1,7 +1,7 @@
 {
-  "name": "Agenda TU/e",
-  "short_name": "Agenda TU/e",
-  "description": "Agenda personal de Juan para clases, calendario, deporte, tareas e IA.",
+  "name": "Agenda",
+  "short_name": "Agenda",
+  "description": "Agenda personal para calendario, tareas, comida, deporte, notas e IA.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f6f5f1",
