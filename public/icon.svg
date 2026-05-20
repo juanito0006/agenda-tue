@@ -1,7 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#c94028"/>
-  <rect x="96" y="118" width="320" height="288" rx="34" fill="#fff8f2"/>
-  <path d="M96 182h320" stroke="#17211d" stroke-width="22"/>
-  <path d="M168 98v70M344 98v70" stroke="#fff8f2" stroke-width="32" stroke-linecap="round"/>
-  <text x="256" y="326" text-anchor="middle" font-family="Arial, sans-serif" font-size="132" font-weight="800" fill="#17211d">A</text>
+  <defs>
+    <linearGradient id="bg" x1="72" y1="54" x2="448" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#eef8ff"/>
+      <stop offset=".55" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e9f7ef"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="96" y1="128" x2="416" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2666a3"/>
+      <stop offset="1" stop-color="#157f63"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#bg)"/>
+  <rect x="76" y="86" width="360" height="340" rx="58" fill="#ffffff" stroke="#b8d8ef" stroke-width="18"/>
+  <path d="M76 166h360v-24c0-31-25-56-56-56H132c-31 0-56 25-56 56v24Z" fill="url(#bar)"/>
+  <path d="M166 68v70M346 68v70" stroke="#17211d" stroke-width="28" stroke-linecap="round"/>
+  <path d="M166 84v54M346 84v54" stroke="#eef8ff" stroke-width="16" stroke-linecap="round"/>
+  <g fill="#2666a3">
+    <rect x="130" y="222" width="54" height="48" rx="14"/>
+    <rect x="226" y="222" width="54" height="48" rx="14"/>
+    <rect x="322" y="222" width="54" height="48" rx="14"/>
+  </g>
+  <g fill="#157f63">
+    <rect x="130" y="306" width="54" height="48" rx="14"/>
+    <rect x="226" y="306" width="54" height="48" rx="14"/>
+  </g>
+  <rect x="322" y="306" width="54" height="48" rx="14" fill="#be8427"/>
 </svg>

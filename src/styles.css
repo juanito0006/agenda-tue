@@ -143,14 +143,54 @@ button {
 }
 
 .brand-mark {
+  position: relative;
   display: grid;
   place-items: center;
   width: 50px;
   height: 50px;
   border-radius: 8px;
-  background: var(--accent);
-  color: white;
+  background: linear-gradient(145deg, #eef8ff 0%, #ffffff 58%, #e9f7ef 100%);
+  color: var(--blue);
   font-weight: 800;
+  border: 1px solid #b8d8ef;
+  box-shadow: inset 0 -10px 18px rgba(38, 102, 163, 0.08), 0 10px 22px rgba(23, 33, 29, 0.08);
+  overflow: hidden;
+}
+
+.calendar-brand::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 13px;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+}
+
+.calendar-brand svg {
+  position: relative;
+  z-index: 1;
+  margin-top: 5px;
+}
+
+.calendar-brand-dots {
+  position: absolute;
+  z-index: 2;
+  right: 9px;
+  bottom: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 5px);
+  gap: 3px;
+}
+
+.calendar-brand-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--yellow);
+}
+
+.calendar-brand-dots i:nth-child(2),
+.calendar-brand-dots i:nth-child(3) {
+  background: var(--green);
 }
 
 .image-brand {

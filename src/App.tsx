@@ -1493,7 +1493,7 @@ function LoginScreen({
     <main className="login-screen">
       <section className="login-card">
         <div className="login-brand">
-          <span className="brand-mark">A</span>
+          <BrandMark />
           <div>
             <strong>Agenda</strong>
             <span>Calendario, tareas, comida, deporte y notas</span>
@@ -1537,7 +1537,17 @@ function BrandMark({ profile }: { profile?: UserProfile }) {
     return <img className="brand-mark image-brand" src={profile.appLogo} alt="" />;
   }
 
-  return <span className="brand-mark">{profile?.appName?.trim().charAt(0).toUpperCase() || "A"}</span>;
+  return (
+    <span className="brand-mark calendar-brand" aria-hidden="true">
+      <CalendarDays size={25} strokeWidth={2.4} />
+      <span className="calendar-brand-dots">
+        <i />
+        <i />
+        <i />
+        <i />
+      </span>
+    </span>
+  );
 }
 
 function OnboardingScreen({
@@ -1561,7 +1571,7 @@ function OnboardingScreen({
     <main className="login-screen">
       <section className="login-card onboarding-card">
         <div className="login-brand">
-          <span className="brand-mark">A</span>
+          <BrandMark />
           <div>
             <strong>Configura tu agenda</strong>
             <span>Esto personaliza tu bienvenida y tus secciones</span>
