@@ -118,6 +118,7 @@ interface QuickLink {
 
 interface UserProfile {
   displayName: string;
+  birthDate: string;
   institutionType: string;
   institutionName: string;
   quickLinks: QuickLink[];
@@ -163,6 +164,7 @@ const initialData: AgendaData = {
   notes: {},
   profile: {
     displayName: "",
+    birthDate: "",
     institutionType: "Universidad",
     institutionName: "",
     quickLinks: [],
@@ -550,6 +552,16 @@ export default function App() {
     }));
   }
 
+  function completeOnboarding(profile: Pick<UserProfile, "displayName" | "birthDate" | "institutionType" | "institutionName">) {
+    updateData((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        ...profile,
+      },
+    }));
+  }
+
   function addQuickLink() {
     if (!quickLinkDraft.name.trim() || !quickLinkDraft.url.trim()) return;
     const normalizedUrl = quickLinkDraft.url.match(/^https?:\/\//i) ? quickLinkDraft.url.trim() : `https://${quickLinkDraft.url.trim()}`;
@@ -785,6 +797,16 @@ export default function App() {
     );
   }
 
+  if (!data.profile.displayName.trim() || !data.profile.institutionName.trim()) {
+    return (
+      <OnboardingScreen
+        initialProfile={data.profile}
+        saveProfile={completeOnboarding}
+        signOut={signOut}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -1014,6 +1036,85 @@ function LoginScreen({
             </button>
           </div>
           <small>{syncStatus}</small>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function OnboardingScreen({
+  initialProfile,
+  saveProfile,
+  signOut,
+}: {
+  initialProfile: UserProfile;
+  saveProfile: (profile: Pick<UserProfile, "displayName" | "birthDate" | "institutionType" | "institutionName">) => void;
+  signOut: () => void;
+}) {
+  const [draft, setDraft] = useState({
+    displayName: initialProfile.displayName,
+    birthDate: initialProfile.birthDate,
+    institutionType: initialProfile.institutionType || "Universidad",
+    institutionName: initialProfile.institutionName,
+  });
+  const canContinue = draft.displayName.trim() && draft.birthDate && draft.institutionName.trim();
+
+  return (
+    <main className="login-screen">
+      <section className="login-card onboarding-card">
+        <div className="login-brand">
+          <span className="brand-mark">A</span>
+          <div>
+            <strong>Configura tu agenda</strong>
+            <span>Esto personaliza tu bienvenida y tus secciones</span>
+          </div>
+        </div>
+        <h1>Cuéntanos un poco sobre ti</h1>
+        <p>Tu agenda empieza en blanco. Después podrás añadir materias, links, tareas, comida y deporte a tu manera.</p>
+        <div className="login-form">
+          <label className="field">
+            <span>Nombre</span>
+            <input value={draft.displayName} placeholder="Ej. Ana, Juan, Marta..." onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} />
+          </label>
+          <label className="field">
+            <span>Fecha de nacimiento</span>
+            <input type="date" value={draft.birthDate} onChange={(event) => setDraft({ ...draft, birthDate: event.target.value })} />
+          </label>
+          <label className="field">
+            <span>Tipo de centro</span>
+            <select value={draft.institutionType} onChange={(event) => setDraft({ ...draft, institutionType: event.target.value })}>
+              <option value="Universidad">Universidad</option>
+              <option value="Instituto">Instituto</option>
+              <option value="Colegio">Colegio</option>
+              <option value="Formación profesional">Formación profesional</option>
+              <option value="Trabajo">Trabajo</option>
+              <option value="Personal">Personal</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Nombre del centro</span>
+            <input
+              value={draft.institutionName}
+              placeholder="Ej. Universidad de Valencia, IES Cervantes, oficina..."
+              onChange={(event) => setDraft({ ...draft, institutionName: event.target.value })}
+            />
+          </label>
+          <div className="login-actions">
+            <button className="primary" disabled={!canContinue} onClick={() => saveProfile({
+              displayName: draft.displayName.trim(),
+              birthDate: draft.birthDate,
+              institutionType: draft.institutionType,
+              institutionName: draft.institutionName.trim(),
+            })}>
+              <Check size={18} />
+              Entrar a mi agenda
+            </button>
+            <button className="secondary-action compact-action" onClick={signOut}>
+              <LogOut size={16} />
+              Salir
+            </button>
+          </div>
         </div>
       </section>
     </main>
@@ -1465,6 +1566,7 @@ function CoursesView({
         <PanelHeader icon={Layers} title="Tu centro" />
         <div className="course-form profile-form">
           <input value={profile.displayName} placeholder="Tu nombre visible" onChange={(event) => patchProfile({ displayName: event.target.value })} />
+          <input type="date" value={profile.birthDate} onChange={(event) => patchProfile({ birthDate: event.target.value })} />
           <select value={profile.institutionType} onChange={(event) => patchProfile({ institutionType: event.target.value })}>
             <option value="Universidad">Universidad</option>
             <option value="Instituto">Instituto</option>

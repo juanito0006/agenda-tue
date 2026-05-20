@@ -46,6 +46,10 @@ body {
   box-shadow: var(--shadow);
 }
 
+.onboarding-card {
+  width: min(680px, 100%);
+}
+
 .login-brand {
   display: flex;
   align-items: center;
