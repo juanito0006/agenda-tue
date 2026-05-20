@@ -33,7 +33,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase, type AuthSession } from "./supabaseClient";
 
-type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "sport" | "platforms" | "ai" | "day";
+type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "sport" | "platforms" | "customize" | "ai" | "day";
 type Priority = "normal" | "deadline" | "exam" | "lab";
 type TaskCategory = "estudio" | "personal" | "admin" | "salud";
 type RoutineType = "clase" | "estudio" | "deporte" | "personal";
@@ -149,6 +149,8 @@ interface StudyTimer {
 }
 
 interface UserProfile {
+  appName: string;
+  appLogo: string;
   displayName: string;
   birthDate: string;
   institutionType: string;
@@ -208,6 +210,8 @@ const initialData: AgendaData = {
   quickNotes: [],
   studyTimers: [],
   profile: {
+    appName: "Agenda",
+    appLogo: "",
     displayName: "",
     birthDate: "",
     institutionType: "Universidad",
@@ -945,6 +949,28 @@ export default function App() {
     setSyncStatus("Sin iniciar sesión");
   }
 
+  function importAppLogo(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("Elige una imagen para el logo.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 700_000) {
+      alert("La imagen es demasiado grande. Usa una foto o logo de menos de 700 KB.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      patchProfile({ appLogo: String(reader.result) });
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  }
+
   const navItems: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "calendar", label: "Calendario", icon: CalendarDays },
@@ -954,6 +980,7 @@ export default function App() {
     { id: "focus", label: "Focus", icon: Timer },
     { id: "sport", label: "Deporte", icon: Dumbbell },
     { id: "platforms", label: "Recursos", icon: Globe },
+    { id: "customize", label: "Personalizar", icon: Save },
     { id: "ai", label: "IA", icon: Bot },
     { id: "day", label: "Día", icon: ClipboardList },
   ];
@@ -985,9 +1012,9 @@ export default function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">A</span>
+          <BrandMark profile={data.profile} />
           <div>
-            <strong>Agenda</strong>
+            <strong>{data.profile.appName || "Agenda"}</strong>
             <span>{data.profile.institutionName || "Organización personal"}</span>
           </div>
         </div>
@@ -1149,6 +1176,14 @@ export default function App() {
           />
         )}
 
+        {view === "customize" && (
+          <CustomizeView
+            profile={data.profile}
+            patchProfile={patchProfile}
+            importLogo={importAppLogo}
+          />
+        )}
+
         {view === "ai" && (
           <AiView
             selectedDate={selectedDate}
@@ -1253,6 +1288,14 @@ function LoginScreen({
       </section>
     </main>
   );
+}
+
+function BrandMark({ profile }: { profile?: UserProfile }) {
+  if (profile?.appLogo) {
+    return <img className="brand-mark image-brand" src={profile.appLogo} alt="" />;
+  }
+
+  return <span className="brand-mark">{profile?.appName?.trim().charAt(0).toUpperCase() || "A"}</span>;
 }
 
 function OnboardingScreen({
@@ -1422,6 +1465,7 @@ function viewTitle(view: View) {
     focus: "Focus de estudio",
     sport: "Deporte",
     platforms: "Recursos",
+    customize: "Personalización",
     ai: "Preguntas de IA",
     day: "Plan del día",
   }[view];
@@ -1908,6 +1952,64 @@ function PlatformsView({
             </article>
             );
           })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CustomizeView({
+  profile,
+  patchProfile,
+  importLogo,
+}: {
+  profile: UserProfile;
+  patchProfile: (patch: Partial<UserProfile>) => void;
+  importLogo: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="customize-layout">
+      <section className="panel wide">
+        <PanelHeader icon={Save} title="Nombre y logo de la app" />
+        <div className="customize-grid">
+          <div className="brand-preview">
+            <BrandMark profile={profile} />
+            <div>
+              <strong>{profile.appName || "Agenda"}</strong>
+              <span>{profile.institutionName || "Tu centro"}</span>
+            </div>
+          </div>
+          <div>
+            <Field label="Nombre de la app" value={profile.appName} placeholder="Ej. Agenda TU/e, Mi planner, UniHub..." onChange={(value) => patchProfile({ appName: value })} />
+            <label className="field">
+              <span>Importar logo o foto</span>
+              <input type="file" accept="image/*" onChange={importLogo} />
+            </label>
+            <div className="customize-actions">
+              <button className="secondary-action compact-action" onClick={() => patchProfile({ appName: "Agenda", appLogo: "" })}>
+                <RotateCcw size={17} />
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Layers} title="Datos de perfil" />
+        <div className="course-form profile-form">
+          <input value={profile.displayName} placeholder="Nombre visible" onChange={(event) => patchProfile({ displayName: event.target.value })} />
+          <input type="date" value={profile.birthDate} onChange={(event) => patchProfile({ birthDate: event.target.value })} />
+          <select value={profile.institutionType} onChange={(event) => patchProfile({ institutionType: event.target.value })}>
+            <option value="Universidad">Universidad</option>
+            <option value="Instituto">Instituto</option>
+            <option value="Colegio">Colegio</option>
+            <option value="Formación profesional">Formación profesional</option>
+            <option value="Trabajo">Trabajo</option>
+            <option value="Personal">Personal</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <input value={profile.institutionName} placeholder="Universidad, instituto o centro" onChange={(event) => patchProfile({ institutionName: event.target.value })} />
         </div>
       </section>
     </div>

@@ -153,6 +153,12 @@ button {
   font-weight: 800;
 }
 
+.image-brand {
+  background: #fff;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+
 .brand strong,
 .brand span {
   display: block;
@@ -345,7 +351,8 @@ textarea {
 .platforms-layout,
 .ai-layout,
 .utility-layout,
-.focus-layout {
+.focus-layout,
+.customize-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
@@ -870,6 +877,46 @@ textarea {
 .form-hints {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+}
+
+.customize-grid {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.brand-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 120px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.brand-preview .brand-mark {
+  width: 72px;
+  height: 72px;
+  font-size: 1.4rem;
+}
+
+.brand-preview strong,
+.brand-preview span {
+  display: block;
+}
+
+.brand-preview span {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.customize-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -1423,7 +1470,8 @@ textarea {
     .platforms-layout,
     .ai-layout,
     .utility-layout,
-    .focus-layout {
+    .focus-layout,
+    .customize-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1476,6 +1524,10 @@ textarea {
     .course-grid,
     .preset-grid,
     .notes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customize-grid {
     grid-template-columns: 1fr;
   }
 
