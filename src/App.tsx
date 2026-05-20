@@ -1202,16 +1202,6 @@ export default function App() {
     );
   }
 
-  if (!data.profile.displayName.trim() || !data.profile.institutionName.trim()) {
-    return (
-      <OnboardingScreen
-        initialProfile={data.profile}
-        saveProfile={completeOnboarding}
-        signOut={signOut}
-      />
-    );
-  }
-
   return (
     <main className={`app-shell ${data.settings.compactMode ? "compact-mode" : ""}`}>
       <aside className="sidebar">
