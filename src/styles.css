@@ -283,6 +283,16 @@ button {
   padding: 28px;
 }
 
+.compact-mode .workspace {
+  padding: 22px;
+}
+
+.compact-mode .panel,
+.compact-mode .settings-panel,
+.compact-mode .auth-card {
+  padding: 14px;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -353,7 +363,8 @@ textarea {
 .utility-layout,
 .focus-layout,
 .customize-layout,
-.recipes-layout {
+.recipes-layout,
+.money-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
@@ -689,6 +700,13 @@ textarea {
   grid-template-columns: minmax(220px, 1fr) 140px 90px 90px 90px 100px 120px;
 }
 
+.money-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 150px 110px 120px 140px 130px 120px;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
 .routine-form {
   grid-template-columns: 150px 120px 120px 130px minmax(220px, 1fr) 120px;
 }
@@ -738,6 +756,69 @@ textarea {
   border-radius: 8px;
   background: #f7e5df;
   color: var(--accent-dark);
+}
+
+.settings-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.settings-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.settings-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-head .panel-header {
+  margin-bottom: 0;
+}
+
+.settings-head button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #eef8ff;
+  color: var(--blue);
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.toggle-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.toggle-line input {
+  width: auto;
+  min-height: auto;
 }
 
 .reminder-list,
@@ -992,6 +1073,57 @@ textarea {
 
 .recipe-hints {
   margin: -6px 0 12px;
+}
+
+.money-table {
+  overflow-x: auto;
+}
+
+.money-row {
+  min-width: 980px;
+  display: grid;
+  grid-template-columns: 150px minmax(220px, 1fr) 120px 150px 140px 120px 42px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.money-head {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.money-row button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #f7e5df;
+  color: var(--accent-dark);
+}
+
+.money-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.money-summary span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+  color: var(--muted);
+}
+
+.money-summary strong {
+  color: var(--ink);
 }
 
 .ai-settings {
@@ -1489,7 +1621,9 @@ textarea {
   .routine-form,
   .reminder-form,
   .timer-form,
-  .recipe-form {
+  .recipe-form,
+  .money-form,
+  .settings-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -1548,7 +1682,8 @@ textarea {
     .utility-layout,
     .focus-layout,
     .customize-layout,
-    .recipes-layout {
+    .recipes-layout,
+    .money-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1597,6 +1732,8 @@ textarea {
     .note-form,
     .timer-form,
     .recipe-form,
+    .money-form,
+    .settings-grid,
     .split-fields,
     .platform-grid,
     .course-grid,

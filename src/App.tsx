@@ -24,16 +24,18 @@
   RotateCcw,
   Save,
   Send,
+  Settings,
   Soup,
   StickyNote,
   Timer,
   Trash2,
   Upload,
+  Wallet,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase, type AuthSession } from "./supabaseClient";
 
-type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "recipes" | "sport" | "platforms" | "customize" | "ai" | "day";
+type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "recipes" | "money" | "sport" | "platforms" | "customize" | "ai" | "day";
 type Priority = "normal" | "deadline" | "exam" | "lab";
 type TaskCategory = "estudio" | "personal" | "admin" | "salud";
 type RoutineType = "clase" | "estudio" | "deporte" | "personal";
@@ -162,6 +164,24 @@ interface Recipe {
   favorite: boolean;
 }
 
+interface MoneyTransaction {
+  id: string;
+  date: string;
+  title: string;
+  amount: number;
+  type: "gasto" | "ingreso";
+  category: string;
+  account: string;
+  notes: string;
+}
+
+interface AppSettings {
+  language: "es" | "en";
+  currency: string;
+  defaultView: View;
+  compactMode: boolean;
+}
+
 interface UserProfile {
   appName: string;
   appLogo: string;
@@ -187,6 +207,8 @@ interface AgendaData {
   quickNotes: QuickNote[];
   studyTimers: StudyTimer[];
   recipes: Recipe[];
+  money: MoneyTransaction[];
+  settings: AppSettings;
 }
 
 const STORAGE_KEY = "open-agenda-data-v1";
@@ -261,6 +283,13 @@ const initialData: AgendaData = {
   quickNotes: [],
   studyTimers: [],
   recipes: [],
+  money: [],
+  settings: {
+    language: "es",
+    currency: "EUR",
+    defaultView: "dashboard",
+    compactMode: false,
+  },
   profile: {
     appName: "Agenda",
     appLogo: "",
@@ -374,6 +403,11 @@ function normalizeData(parsed: Partial<AgendaData>): AgendaData {
     quickNotes: Array.isArray(parsed.quickNotes) ? parsed.quickNotes : [],
     studyTimers: Array.isArray(parsed.studyTimers) ? parsed.studyTimers : [],
     recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
+    money: Array.isArray(parsed.money) ? parsed.money : [],
+    settings: {
+      ...initialData.settings,
+      ...(parsed.settings ?? {}),
+    },
     profile: {
       ...initialData.profile,
       ...(parsed.profile ?? {}),
@@ -422,6 +456,15 @@ export default function App() {
     steps: "",
     notes: "",
   });
+  const [moneyDraft, setMoneyDraft] = useState<Omit<MoneyTransaction, "id">>({
+    date: todayKey(),
+    title: "",
+    amount: 0,
+    type: "gasto",
+    category: "comida",
+    account: "principal",
+    notes: "",
+  });
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
   const [timerMode, setTimerMode] = useState<"focus" | "break">("focus");
   const [remainingSeconds, setRemainingSeconds] = useState(25 * 60);
@@ -450,6 +493,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [cloudReady, setCloudReady] = useState(!hasSupabaseConfig);
   const [syncStatus, setSyncStatus] = useState(hasSupabaseConfig ? "Sin iniciar sesión" : "Configura Supabase");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const defaultViewApplied = useRef(false);
   const importInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -537,6 +582,12 @@ export default function App() {
   }, [data, session?.user.id, cloudReady]);
 
   useEffect(() => {
+    if (!cloudReady || defaultViewApplied.current) return;
+    setView(data.settings.defaultView);
+    defaultViewApplied.current = true;
+  }, [cloudReady, data.settings.defaultView]);
+
+  useEffect(() => {
     localStorage.setItem("agenda-tue-openai-key", aiApiKey);
   }, [aiApiKey]);
 
@@ -552,6 +603,7 @@ export default function App() {
     }));
     setSportDraft((current) => ({ ...current, date: selectedDate }));
     setReminderDraft((current) => ({ ...current, date: selectedDate }));
+    setMoneyDraft((current) => ({ ...current, date: selectedDate }));
   }, [selectedDate, data.courseCalendars]);
 
   useEffect(() => {
@@ -686,6 +738,13 @@ export default function App() {
     updateData((current) => ({
       ...current,
       profile: { ...current.profile, ...patch },
+    }));
+  }
+
+  function patchSettings(patch: Partial<AppSettings>) {
+    updateData((current) => ({
+      ...current,
+      settings: { ...current.settings, ...patch },
     }));
   }
 
@@ -878,6 +937,37 @@ export default function App() {
 
   function deleteRecipe(id: string) {
     updateData((current) => ({ ...current, recipes: current.recipes.filter((recipe) => recipe.id !== id) }));
+  }
+
+  function addMoneyTransaction() {
+    if (!moneyDraft.title.trim() || Number(moneyDraft.amount) <= 0) return;
+    updateData((current) => ({
+      ...current,
+      money: [
+        {
+          ...moneyDraft,
+          id: crypto.randomUUID(),
+          title: moneyDraft.title.trim(),
+          amount: Number(moneyDraft.amount),
+          category: moneyDraft.category.trim() || "general",
+          account: moneyDraft.account.trim() || "principal",
+          notes: moneyDraft.notes.trim(),
+        },
+        ...current.money,
+      ].sort((a, b) => b.date.localeCompare(a.date)),
+    }));
+    setMoneyDraft({ ...moneyDraft, title: "", amount: 0, notes: "" });
+  }
+
+  function patchMoneyTransaction(id: string, patch: Partial<MoneyTransaction>) {
+    updateData((current) => ({
+      ...current,
+      money: current.money.map((transaction) => (transaction.id === id ? { ...transaction, ...patch } : transaction)),
+    }));
+  }
+
+  function deleteMoneyTransaction(id: string) {
+    updateData((current) => ({ ...current, money: current.money.filter((transaction) => transaction.id !== id) }));
   }
 
   function deleteCourseCalendar(id: string) {
@@ -1091,6 +1181,7 @@ export default function App() {
     { id: "notes", label: "Notas", icon: StickyNote },
     { id: "focus", label: "Focus", icon: Timer },
     { id: "recipes", label: "Recetas", icon: Soup },
+    { id: "money", label: "Dinero", icon: Wallet },
     { id: "sport", label: "Deporte", icon: Dumbbell },
     { id: "platforms", label: "Recursos", icon: Globe },
     { id: "customize", label: "Personalizar", icon: Save },
@@ -1122,7 +1213,7 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${data.settings.compactMode ? "compact-mode" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
           <BrandMark profile={data.profile} />
@@ -1180,7 +1271,17 @@ export default function App() {
               <ChevronRight size={18} />
             </button>
           </div>
+          <button className="settings-button" title="Ajustes" onClick={() => setSettingsOpen((open) => !open)}>
+            <Settings size={18} />
+          </button>
         </header>
+        {settingsOpen && (
+          <SettingsPanel
+            settings={data.settings}
+            patchSettings={patchSettings}
+            close={() => setSettingsOpen(false)}
+          />
+        )}
 
         {view === "dashboard" && (
           <Dashboard
@@ -1279,6 +1380,20 @@ export default function App() {
             addRecipe={addRecipe}
             patchRecipe={patchRecipe}
             deleteRecipe={deleteRecipe}
+          />
+        )}
+
+        {view === "money" && (
+          <MoneyView
+            selectedDate={selectedDate}
+            weekDays={weekDays}
+            transactions={data.money}
+            draft={moneyDraft}
+            setDraft={setMoneyDraft}
+            addTransaction={addMoneyTransaction}
+            patchTransaction={patchMoneyTransaction}
+            deleteTransaction={deleteMoneyTransaction}
+            currency={data.settings.currency}
           />
         )}
 
@@ -1591,12 +1706,70 @@ function viewTitle(view: View) {
     notes: "Notas rápidas",
     focus: "Focus de estudio",
     recipes: "Recetas",
+    money: "Dinero",
     sport: "Deporte",
     platforms: "Recursos",
     customize: "Personalización",
     ai: "Preguntas de IA",
     day: "Plan del día",
   }[view];
+}
+
+function formatMoney(amount: number, currency: string) {
+  return new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(amount);
+}
+
+function SettingsPanel({
+  settings,
+  patchSettings,
+  close,
+}: {
+  settings: AppSettings;
+  patchSettings: (patch: Partial<AppSettings>) => void;
+  close: () => void;
+}) {
+  return (
+    <section className="settings-panel">
+      <div className="settings-head">
+        <PanelHeader icon={Settings} title="Ajustes" />
+        <button title="Cerrar ajustes" onClick={close}>
+          <Check size={16} />
+        </button>
+      </div>
+      <div className="settings-grid">
+        <label className="field">
+          <span>Idioma</span>
+          <select value={settings.language} onChange={(event) => patchSettings({ language: event.target.value as AppSettings["language"] })}>
+            <option value="es">Español</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Moneda</span>
+          <select value={settings.currency} onChange={(event) => patchSettings({ currency: event.target.value })}>
+            <option value="EUR">EUR (€)</option>
+            <option value="USD">USD ($)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="CHF">CHF</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Vista inicial preferida</span>
+          <select value={settings.defaultView} onChange={(event) => patchSettings({ defaultView: event.target.value as View })}>
+            <option value="dashboard">Dashboard</option>
+            <option value="calendar">Calendario</option>
+            <option value="day">Día</option>
+            <option value="money">Dinero</option>
+            <option value="focus">Focus</option>
+          </select>
+        </label>
+        <label className="toggle-line">
+          <input type="checkbox" checked={settings.compactMode} onChange={(event) => patchSettings({ compactMode: event.target.checked })} />
+          <span>Modo compacto</span>
+        </label>
+      </div>
+    </section>
+  );
 }
 
 function Dashboard({
@@ -2721,6 +2894,128 @@ function RecipesView({
   );
 }
 
+function MoneyView({
+  selectedDate,
+  weekDays,
+  transactions,
+  draft,
+  setDraft,
+  addTransaction,
+  patchTransaction,
+  deleteTransaction,
+  currency,
+}: {
+  selectedDate: string;
+  weekDays: string[];
+  transactions: MoneyTransaction[];
+  draft: Omit<MoneyTransaction, "id">;
+  setDraft: (draft: Omit<MoneyTransaction, "id">) => void;
+  addTransaction: () => void;
+  patchTransaction: (id: string, patch: Partial<MoneyTransaction>) => void;
+  deleteTransaction: (id: string) => void;
+  currency: string;
+}) {
+  const selectedMonth = fromDateKey(selectedDate).getMonth();
+  const selectedYear = fromDateKey(selectedDate).getFullYear();
+  const dayTransactions = transactions.filter((item) => item.date === selectedDate);
+  const weekTransactions = transactions.filter((item) => weekDays.includes(item.date));
+  const monthTransactions = transactions.filter((item) => {
+    const date = fromDateKey(item.date);
+    return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
+  });
+
+  const sum = (items: MoneyTransaction[], type?: MoneyTransaction["type"]) => items
+    .filter((item) => !type || item.type === type)
+    .reduce((total, item) => total + item.amount, 0);
+  const monthIncome = sum(monthTransactions, "ingreso");
+  const monthExpense = sum(monthTransactions, "gasto");
+  const categories = Array.from(new Set(transactions.map((item) => item.category).filter(Boolean)));
+
+  return (
+    <div className="money-layout">
+      <section className="summary-band">
+        <Metric label="Gasto día" value={formatMoney(sum(dayTransactions, "gasto"), currency)} />
+        <Metric label="Gasto semana" value={formatMoney(sum(weekTransactions, "gasto"), currency)} />
+        <Metric label="Gasto mes" value={formatMoney(monthExpense, currency)} />
+        <Metric label="Balance mes" value={formatMoney(monthIncome - monthExpense, currency)} />
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Wallet} title="Añadir movimiento" />
+        <div className="money-form">
+          <input value={draft.title} placeholder="Concepto: comida, alquiler, sueldo..." onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
+          <input type="number" min="0" step="0.01" value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: Number(event.target.value) })} />
+          <select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as MoneyTransaction["type"] })}>
+            <option value="gasto">gasto</option>
+            <option value="ingreso">ingreso</option>
+          </select>
+          <input value={draft.category} placeholder="Categoría" onChange={(event) => setDraft({ ...draft, category: event.target.value })} />
+          <input value={draft.account} placeholder="Cuenta" onChange={(event) => setDraft({ ...draft, account: event.target.value })} />
+          <button className="primary" onClick={addTransaction}>
+            <Plus size={18} />
+            Añadir
+          </button>
+        </div>
+        <Field label="Notas" value={draft.notes} onChange={(value) => setDraft({ ...draft, notes: value })} />
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={ClipboardList} title="Tabla de movimientos" />
+        <div className="money-table">
+          <div className="money-row money-head">
+            <span>Fecha</span>
+            <span>Concepto</span>
+            <span>Tipo</span>
+            <span>Categoría</span>
+            <span>Cuenta</span>
+            <span>Importe</span>
+            <span />
+          </div>
+          {transactions.length === 0 ? <Empty text="Aún no hay movimientos. Añade ingresos o gastos para ver el resumen." /> : transactions.map((item) => (
+            <div key={item.id} className="money-row">
+              <input type="date" value={item.date} onChange={(event) => patchTransaction(item.id, { date: event.target.value })} />
+              <input value={item.title} onChange={(event) => patchTransaction(item.id, { title: event.target.value })} />
+              <select value={item.type} onChange={(event) => patchTransaction(item.id, { type: event.target.value as MoneyTransaction["type"] })}>
+                <option value="gasto">gasto</option>
+                <option value="ingreso">ingreso</option>
+              </select>
+              <input value={item.category} list="money-categories" onChange={(event) => patchTransaction(item.id, { category: event.target.value })} />
+              <input value={item.account} onChange={(event) => patchTransaction(item.id, { account: event.target.value })} />
+              <input type="number" min="0" step="0.01" value={item.amount} onChange={(event) => patchTransaction(item.id, { amount: Number(event.target.value) })} />
+              <button title="Eliminar movimiento" onClick={() => deleteTransaction(item.id)}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+          <datalist id="money-categories">
+            {categories.map((category) => <option key={category} value={category} />)}
+          </datalist>
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={Wallet} title="Resumen mes" />
+        <div className="money-summary">
+          <span>Ingresos <strong>{formatMoney(monthIncome, currency)}</strong></span>
+          <span>Gastos <strong>{formatMoney(monthExpense, currency)}</strong></span>
+          <span>Balance <strong>{formatMoney(monthIncome - monthExpense, currency)}</strong></span>
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={Layers} title="Por categoría" />
+        <div className="money-summary">
+          {categories.length === 0 ? <Empty text="Sin categorías todavía." /> : categories.map((category) => {
+            const spent = sum(monthTransactions.filter((item) => item.category === category), "gasto");
+            return <span key={category}>{category} <strong>{formatMoney(spent, currency)}</strong></span>;
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function SportView({
   weekDays,
   sports,
@@ -2994,7 +3289,7 @@ function RoutineView({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="metric">
       <span>{label}</span>
