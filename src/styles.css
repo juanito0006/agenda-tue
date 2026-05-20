@@ -403,11 +403,12 @@ textarea {
 .utility-layout,
 .focus-layout,
 .customize-layout,
+.plans-layout,
 .recipes-layout,
 .money-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 22px;
 }
 
 .summary-band,
@@ -424,10 +425,12 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 22px;
+  padding: 28px;
   border: 1px solid #b8e2fb;
   border-radius: 8px;
-  background: #eef8ff;
+  background:
+    linear-gradient(135deg, rgba(238, 248, 255, 0.96), rgba(255, 255, 255, 0.92)),
+    radial-gradient(circle at 88% 20%, rgba(21, 127, 99, 0.16), transparent 34%);
   box-shadow: var(--shadow);
 }
 
@@ -439,7 +442,8 @@ textarea {
 
 .welcome-panel h2 {
   margin-top: 4px;
-  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  letter-spacing: 0;
 }
 
 .welcome-panel strong {
@@ -454,13 +458,24 @@ textarea {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
+  gap: 12px;
 }
 
 .metric {
+  position: relative;
   padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   background: #fff;
+  overflow: hidden;
+}
+
+.metric::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--blue), var(--green));
 }
 
 .metric span {
@@ -475,7 +490,7 @@ textarea {
 }
 
 .panel {
-  padding: 18px;
+  padding: 22px;
 }
 
 .wide {
@@ -488,7 +503,7 @@ textarea {
 }
 
 .panel-header h2 {
-  font-size: 1rem;
+  font-size: 1.08rem;
 }
 
 .week-strip {
@@ -1115,6 +1130,138 @@ textarea {
   margin: -6px 0 12px;
 }
 
+.plans-hero {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  padding: 34px;
+  border: 1px solid #b8d8ef;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(238, 248, 255, 0.96), rgba(255, 255, 255, 0.94)),
+    radial-gradient(circle at 86% 15%, rgba(190, 132, 39, 0.18), transparent 32%);
+  box-shadow: var(--shadow);
+}
+
+.plans-hero > span,
+.mini-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.plans-hero h2 {
+  max-width: 850px;
+  font-size: clamp(2.1rem, 5vw, 4.4rem);
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.plans-hero p {
+  max-width: 680px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.pricing-grid,
+.ai-example-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.price-card {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.premium-card {
+  border-color: #b8d8ef;
+  background: #f5fbff;
+}
+
+.price-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.price-head .panel-header {
+  margin-bottom: 0;
+}
+
+.price-head strong {
+  color: var(--ink);
+  font-size: clamp(1.7rem, 4vw, 2.7rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.price-card p {
+  color: var(--muted);
+}
+
+.feature-list {
+  display: grid;
+  gap: 10px;
+}
+
+.feature-list span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.premium-card .feature-list svg,
+.ai-difference .feature-list svg {
+  color: var(--green);
+}
+
+.ai-difference {
+  background: #fffdf7;
+}
+
+.ai-example-grid blockquote {
+  margin: 10px 0 0;
+  padding: 16px;
+  border-left: 4px solid var(--blue);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.visual-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.visual-points span {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .money-table {
   overflow-x: auto;
 }
@@ -1722,6 +1869,7 @@ textarea {
     .utility-layout,
     .focus-layout,
     .customize-layout,
+    .plans-layout,
     .recipes-layout,
     .money-layout {
     grid-template-columns: 1fr;
@@ -1780,8 +1928,14 @@ textarea {
     .preset-grid,
     .notes-grid,
     .recipe-suggestions,
-    .recipe-grid {
+    .recipe-grid,
+    .pricing-grid,
+    .ai-example-grid {
     grid-template-columns: 1fr;
+  }
+
+  .plans-hero {
+    padding: 24px;
   }
 
   .customize-grid {

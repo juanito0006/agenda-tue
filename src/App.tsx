@@ -3,12 +3,14 @@
   Bell,
   Bot,
   CalendarDays,
+  ChartNoAxesCombined,
   Check,
   ChevronLeft,
   ChevronRight,
   Cloud,
   CloudOff,
   ClipboardList,
+  Crown,
   Download,
   Dumbbell,
   Globe,
@@ -26,6 +28,7 @@
   Send,
   Settings,
   Soup,
+  Sparkles,
   StickyNote,
   Timer,
   Trash2,
@@ -35,7 +38,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase, type AuthSession } from "./supabaseClient";
 
-type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "recipes" | "money" | "sport" | "platforms" | "customize" | "ai" | "day";
+type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "recipes" | "money" | "sport" | "platforms" | "customize" | "plans" | "ai" | "day";
 type Priority = "normal" | "deadline" | "exam" | "lab";
 type TaskCategory = "estudio" | "personal" | "admin" | "salud";
 type RoutineType = "clase" | "estudio" | "deporte" | "personal";
@@ -1185,6 +1188,7 @@ export default function App() {
     { id: "sport", label: "Deporte", icon: Dumbbell },
     { id: "platforms", label: "Recursos", icon: Globe },
     { id: "customize", label: "Personalizar", icon: Save },
+    { id: "plans", label: "Planes", icon: Crown },
     { id: "ai", label: "IA", icon: Bot },
     { id: "day", label: "Día", icon: ClipboardList },
   ];
@@ -1415,6 +1419,8 @@ export default function App() {
             importLogo={importAppLogo}
           />
         )}
+
+        {view === "plans" && <PlansView />}
 
         {view === "ai" && (
           <AiView
@@ -1710,6 +1716,7 @@ function viewTitle(view: View) {
     sport: "Deporte",
     platforms: "Recursos",
     customize: "Personalización",
+    plans: "Planes",
     ai: "Preguntas de IA",
     day: "Plan del día",
   }[view];
@@ -2311,6 +2318,87 @@ function CustomizeView({
             <option value="Otro">Otro</option>
           </select>
           <input value={profile.institutionName} placeholder="Universidad, instituto o centro" onChange={(event) => patchProfile({ institutionName: event.target.value })} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PlansView() {
+  const freeFeatures = ["Calendario", "Tareas", "Hábitos básicos", "Comida y deporte", "Notas rápidas"];
+  const premiumFeatures = ["IA organizadora", "Estadísticas avanzadas", "Sincronización", "Temas premium", "Widgets", "Exportar PDF", "Colaboración", "Backups"];
+  return (
+    <div className="plans-layout">
+      <section className="plans-hero">
+        <span>
+          <Sparkles size={17} />
+          Modelo perfecto
+        </span>
+        <h2>Agenda simple gratis, inteligencia extra cuando quieras crecer.</h2>
+        <p>La base debe ser útil para todo el mundo. El premium tiene que sentirse como un asistente que te ahorra tiempo de verdad.</p>
+      </section>
+
+      <section className="pricing-grid">
+        <article className="price-card free-card">
+          <div className="price-head">
+            <PanelHeader icon={Check} title="Gratis" />
+            <strong>€0</strong>
+          </div>
+          <p>Para organizar el día sin fricción.</p>
+          <div className="feature-list">
+            {freeFeatures.map((feature) => (
+              <span key={feature}>
+                <Check size={15} />
+                {feature}
+              </span>
+            ))}
+          </div>
+        </article>
+
+        <article className="price-card premium-card">
+          <div className="price-head">
+            <PanelHeader icon={Crown} title="Premium" />
+            <strong>€4-8/mes</strong>
+          </div>
+          <p>Para convertir la agenda en un sistema inteligente.</p>
+          <div className="feature-list">
+            {premiumFeatures.map((feature) => (
+              <span key={feature}>
+                <Sparkles size={15} />
+                {feature}
+              </span>
+            ))}
+          </div>
+        </article>
+      </section>
+
+      <section className="panel wide ai-difference">
+        <PanelHeader icon={Bot} title="Lo que puede diferenciarte: IA" />
+        <div className="ai-example-grid">
+          <div>
+            <span className="mini-label">Usuario</span>
+            <blockquote>“Tengo examen el viernes y trabajo el martes”</blockquote>
+          </div>
+          <div>
+            <span className="mini-label">La IA</span>
+            <div className="feature-list">
+              <span><Check size={15} />Reorganiza horarios</span>
+              <span><Check size={15} />Propone tiempos</span>
+              <span><Check size={15} />Mueve tareas</span>
+              <span><Check size={15} />Crea sesiones de estudio</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel wide visual-roadmap">
+        <PanelHeader icon={ChartNoAxesCombined} title="Dirección visual" />
+        <div className="visual-points">
+          <span>Títulos grandes</span>
+          <span>Tarjetas claras</span>
+          <span>Espacios amplios</span>
+          <span>Secciones con intención</span>
+          <span>Colores inteligentes</span>
         </div>
       </section>
     </div>
