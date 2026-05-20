@@ -1,5 +1,6 @@
 ﻿import {
   Activity,
+  Bell,
   Bot,
   CalendarDays,
   Check,
@@ -16,18 +17,23 @@
   LayoutDashboard,
   LogIn,
   LogOut,
+  Pause,
+  Play,
   Plus,
   RefreshCw,
+  RotateCcw,
   Save,
   Send,
   Soup,
+  StickyNote,
+  Timer,
   Trash2,
   Upload,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase, type AuthSession } from "./supabaseClient";
 
-type View = "dashboard" | "calendar" | "courses" | "sport" | "platforms" | "ai" | "day";
+type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "sport" | "platforms" | "ai" | "day";
 type Priority = "normal" | "deadline" | "exam" | "lab";
 type TaskCategory = "estudio" | "personal" | "admin" | "salud";
 type RoutineType = "clase" | "estudio" | "deporte" | "personal";
@@ -116,6 +122,32 @@ interface QuickLink {
   description: string;
 }
 
+interface Reminder {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  category: string;
+  completed: boolean;
+  notes: string;
+}
+
+interface QuickNote {
+  id: string;
+  title: string;
+  content: string;
+  color: string;
+  updatedAt: string;
+}
+
+interface StudyTimer {
+  id: string;
+  title: string;
+  focusMinutes: number;
+  breakMinutes: number;
+  cycles: number;
+}
+
 interface UserProfile {
   displayName: string;
   birthDate: string;
@@ -135,6 +167,9 @@ interface AgendaData {
   aiMessages: AiChatMessage[];
   notes: Record<string, DailyNote>;
   profile: UserProfile;
+  reminders: Reminder[];
+  quickNotes: QuickNote[];
+  studyTimers: StudyTimer[];
 }
 
 const STORAGE_KEY = "open-agenda-data-v1";
@@ -142,6 +177,13 @@ const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const fullWeekdays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const hours = Array.from({ length: 15 }, (_, index) => index + 7);
 const colors = ["#c94028", "#2666a3", "#157f63", "#be8427", "#6d5bd0", "#0f8a91"];
+const noteColors = ["#fff5df", "#eef8ff", "#e8f5f0", "#fff0eb", "#f1ecff", "#f7f6f1"];
+const studyPresets = [
+  { title: "Pomodoro clásico", focusMinutes: 25, breakMinutes: 5, cycles: 4 },
+  { title: "Bloque profundo", focusMinutes: 50, breakMinutes: 10, cycles: 2 },
+  { title: "Sprint corto", focusMinutes: 15, breakMinutes: 3, cycles: 3 },
+  { title: "Repaso examen", focusMinutes: 40, breakMinutes: 8, cycles: 3 },
+];
 const eventTypeStyles: Record<EventType, { label: string; color: string; background: string }> = {
   clase: { label: "Clase", color: "#2666a3", background: "#eaf2fb" },
   estudio: { label: "Estudio", color: "#157f63", background: "#e8f5f0" },
@@ -162,6 +204,9 @@ const initialData: AgendaData = {
   sports: [],
   aiMessages: [],
   notes: {},
+  reminders: [],
+  quickNotes: [],
+  studyTimers: [],
   profile: {
     displayName: "",
     birthDate: "",
@@ -269,6 +314,9 @@ function normalizeData(parsed: Partial<AgendaData>): AgendaData {
     sports: Array.isArray(parsed.sports) ? parsed.sports : [],
     aiMessages: Array.isArray(parsed.aiMessages) ? parsed.aiMessages : [],
     notes: parsed.notes ?? {},
+    reminders: Array.isArray(parsed.reminders) ? parsed.reminders : [],
+    quickNotes: Array.isArray(parsed.quickNotes) ? parsed.quickNotes : [],
+    studyTimers: Array.isArray(parsed.studyTimers) ? parsed.studyTimers : [],
     profile: {
       ...initialData.profile,
       ...(parsed.profile ?? {}),
@@ -303,6 +351,13 @@ export default function App() {
   });
   const [courseDraft, setCourseDraft] = useState({ name: "", color: colors[3], location: "", notes: "" });
   const [quickLinkDraft, setQuickLinkDraft] = useState({ name: "", url: "", description: "" });
+  const [reminderDraft, setReminderDraft] = useState({ title: "", date: todayKey(), time: "10:00", category: "personal", notes: "" });
+  const [quickNoteDraft, setQuickNoteDraft] = useState({ title: "", content: "", color: noteColors[0] });
+  const [timerDraft, setTimerDraft] = useState({ title: "", focusMinutes: 25, breakMinutes: 5, cycles: 4 });
+  const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
+  const [timerMode, setTimerMode] = useState<"focus" | "break">("focus");
+  const [remainingSeconds, setRemainingSeconds] = useState(25 * 60);
+  const [timerRunning, setTimerRunning] = useState(false);
   const [aiDraft, setAiDraft] = useState("Dame una receta fácil con arroz, huevos y algo de verdura.");
   const [aiApiKey, setAiApiKey] = useState(() => localStorage.getItem("agenda-tue-openai-key") ?? "");
   const [aiModel, setAiModel] = useState(() => localStorage.getItem("agenda-tue-ai-model") ?? "gpt-5.2");
@@ -428,7 +483,21 @@ export default function App() {
       calendarId: data.courseCalendars[0]?.id ?? "general",
     }));
     setSportDraft((current) => ({ ...current, date: selectedDate }));
+    setReminderDraft((current) => ({ ...current, date: selectedDate }));
   }, [selectedDate, data.courseCalendars]);
+
+  useEffect(() => {
+    if (!timerRunning) return;
+    const tick = window.setInterval(() => {
+      setRemainingSeconds((seconds) => Math.max(seconds - 1, 0));
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [timerRunning]);
+
+  useEffect(() => {
+    if (remainingSeconds > 0 || !timerRunning) return;
+    setTimerRunning(false);
+  }, [remainingSeconds, timerRunning]);
 
   const weekStart = startOfWeekKey(selectedDate);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
@@ -591,6 +660,109 @@ export default function App() {
         quickLinks: current.profile.quickLinks.filter((item) => item.id !== id),
       },
     }));
+  }
+
+  function addReminder() {
+    if (!reminderDraft.title.trim()) return;
+    updateData((current) => ({
+      ...current,
+      reminders: [
+        {
+          id: crypto.randomUUID(),
+          title: reminderDraft.title.trim(),
+          date: reminderDraft.date,
+          time: reminderDraft.time,
+          category: reminderDraft.category.trim() || "personal",
+          completed: false,
+          notes: reminderDraft.notes.trim(),
+        },
+        ...current.reminders,
+      ].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)),
+    }));
+    setReminderDraft({ ...reminderDraft, title: "", notes: "" });
+  }
+
+  function patchReminder(id: string, patch: Partial<Reminder>) {
+    updateData((current) => ({
+      ...current,
+      reminders: current.reminders.map((reminder) => (reminder.id === id ? { ...reminder, ...patch } : reminder)),
+    }));
+  }
+
+  function deleteReminder(id: string) {
+    updateData((current) => ({ ...current, reminders: current.reminders.filter((reminder) => reminder.id !== id) }));
+  }
+
+  function addQuickNote() {
+    if (!quickNoteDraft.title.trim() && !quickNoteDraft.content.trim()) return;
+    updateData((current) => ({
+      ...current,
+      quickNotes: [
+        {
+          id: crypto.randomUUID(),
+          title: quickNoteDraft.title.trim() || "Nota rápida",
+          content: quickNoteDraft.content.trim(),
+          color: quickNoteDraft.color,
+          updatedAt: new Date().toISOString(),
+        },
+        ...current.quickNotes,
+      ],
+    }));
+    setQuickNoteDraft({ title: "", content: "", color: noteColors[0] });
+  }
+
+  function patchQuickNote(id: string, patch: Partial<QuickNote>) {
+    updateData((current) => ({
+      ...current,
+      quickNotes: current.quickNotes.map((note) => (
+        note.id === id ? { ...note, ...patch, updatedAt: new Date().toISOString() } : note
+      )),
+    }));
+  }
+
+  function deleteQuickNote(id: string) {
+    updateData((current) => ({ ...current, quickNotes: current.quickNotes.filter((note) => note.id !== id) }));
+  }
+
+  function addStudyTimer(timer = timerDraft) {
+    if (!timer.title.trim()) return;
+    updateData((current) => ({
+      ...current,
+      studyTimers: [
+        {
+          id: crypto.randomUUID(),
+          title: timer.title.trim(),
+          focusMinutes: Math.max(1, Number(timer.focusMinutes)),
+          breakMinutes: Math.max(1, Number(timer.breakMinutes)),
+          cycles: Math.max(1, Number(timer.cycles)),
+        },
+        ...current.studyTimers,
+      ],
+    }));
+    setTimerDraft({ title: "", focusMinutes: 25, breakMinutes: 5, cycles: 4 });
+  }
+
+  function deleteStudyTimer(id: string) {
+    updateData((current) => ({ ...current, studyTimers: current.studyTimers.filter((timer) => timer.id !== id) }));
+    if (activeTimerId === id) {
+      setActiveTimerId(null);
+      setTimerRunning(false);
+      setRemainingSeconds(25 * 60);
+      setTimerMode("focus");
+    }
+  }
+
+  function startStudyTimer(timer: StudyTimer, mode: "focus" | "break" = "focus") {
+    setActiveTimerId(timer.id);
+    setTimerMode(mode);
+    setRemainingSeconds((mode === "focus" ? timer.focusMinutes : timer.breakMinutes) * 60);
+    setTimerRunning(true);
+  }
+
+  function resetActiveTimer() {
+    const timer = data.studyTimers.find((item) => item.id === activeTimerId);
+    setTimerRunning(false);
+    setRemainingSeconds(timer ? (timerMode === "focus" ? timer.focusMinutes : timer.breakMinutes) * 60 : 25 * 60);
   }
 
   function deleteCourseCalendar(id: string) {
@@ -778,6 +950,9 @@ export default function App() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "calendar", label: "Calendario", icon: CalendarDays },
     { id: "courses", label: "Materias", icon: Layers },
+    { id: "reminders", label: "Recordatorios", icon: Bell },
+    { id: "notes", label: "Notas", icon: StickyNote },
+    { id: "focus", label: "Focus", icon: Timer },
     { id: "sport", label: "Deporte", icon: Dumbbell },
     { id: "platforms", label: "Recursos", icon: Globe },
     { id: "ai", label: "IA", icon: Bot },
@@ -912,6 +1087,45 @@ export default function App() {
             deleteCourseCalendar={deleteCourseCalendar}
             profile={data.profile}
             patchProfile={patchProfile}
+          />
+        )}
+
+        {view === "reminders" && (
+          <RemindersView
+            reminders={data.reminders}
+            draft={reminderDraft}
+            setDraft={setReminderDraft}
+            addReminder={addReminder}
+            patchReminder={patchReminder}
+            deleteReminder={deleteReminder}
+          />
+        )}
+
+        {view === "notes" && (
+          <QuickNotesView
+            notes={data.quickNotes}
+            draft={quickNoteDraft}
+            setDraft={setQuickNoteDraft}
+            addNote={addQuickNote}
+            patchNote={patchQuickNote}
+            deleteNote={deleteQuickNote}
+          />
+        )}
+
+        {view === "focus" && (
+          <FocusView
+            timers={data.studyTimers}
+            draft={timerDraft}
+            setDraft={setTimerDraft}
+            addTimer={addStudyTimer}
+            deleteTimer={deleteStudyTimer}
+            startTimer={startStudyTimer}
+            activeTimerId={activeTimerId}
+            timerMode={timerMode}
+            remainingSeconds={remainingSeconds}
+            running={timerRunning}
+            setRunning={setTimerRunning}
+            resetTimer={resetActiveTimer}
           />
         )}
 
@@ -1204,6 +1418,9 @@ function viewTitle(view: View) {
     dashboard: "Dashboard semanal",
     calendar: "Calendario semanal",
     courses: "Materias y centro",
+    reminders: "Recordatorios",
+    notes: "Notas rápidas",
+    focus: "Focus de estudio",
     sport: "Deporte",
     platforms: "Recursos",
     ai: "Preguntas de IA",
@@ -1865,6 +2082,244 @@ function extractResponseText(result: unknown) {
     .join("\n");
 
   return text || "No he recibido texto en la respuesta.";
+}
+
+function formatTimer(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+
+function RemindersView({
+  reminders,
+  draft,
+  setDraft,
+  addReminder,
+  patchReminder,
+  deleteReminder,
+}: {
+  reminders: Reminder[];
+  draft: Omit<Reminder, "id" | "completed">;
+  setDraft: (draft: Omit<Reminder, "id" | "completed">) => void;
+  addReminder: () => void;
+  patchReminder: (id: string, patch: Partial<Reminder>) => void;
+  deleteReminder: (id: string) => void;
+}) {
+  const todayReminders = reminders.filter((reminder) => reminder.date === todayKey() && !reminder.completed);
+  const upcomingReminders = reminders.filter((reminder) => !reminder.completed);
+
+  return (
+    <div className="utility-layout">
+      <section className="summary-band">
+        <Metric label="Hoy" value={todayReminders.length} />
+        <Metric label="Pendientes" value={upcomingReminders.length} />
+        <Metric label="Completados" value={reminders.filter((item) => item.completed).length} />
+        <Metric label="Categorías" value={new Set(reminders.map((item) => item.category)).size} />
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Bell} title="Añadir recordatorio" />
+        <div className="reminder-form">
+          <input value={draft.title} placeholder="Ej. Tenis, llamar, recoger compra..." onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
+          <input type="time" value={draft.time} onChange={(event) => setDraft({ ...draft, time: event.target.value })} />
+          <input value={draft.category} placeholder="personal, estudio, casa..." onChange={(event) => setDraft({ ...draft, category: event.target.value })} />
+          <button className="primary" onClick={addReminder}>
+            <Plus size={18} />
+            Añadir
+          </button>
+        </div>
+        <Field label="Notas" value={draft.notes} onChange={(value) => setDraft({ ...draft, notes: value })} />
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={ClipboardList} title="Lista de recordatorios" />
+        <div className="reminder-list">
+          {reminders.length === 0 ? <Empty text="Aún no hay recordatorios. Añade algo con fecha y hora." /> : reminders.map((reminder) => (
+            <article key={reminder.id} className={reminder.completed ? "reminder-card done" : "reminder-card"}>
+              <button className="check-button" title="Completar recordatorio" onClick={() => patchReminder(reminder.id, { completed: !reminder.completed })}>
+                {reminder.completed && <Check size={14} />}
+              </button>
+              <div>
+                <strong>{reminder.title}</strong>
+                <span>{formatDate(reminder.date, "short")} · {reminder.time} · {reminder.category}</span>
+                {reminder.notes && <small>{reminder.notes}</small>}
+              </div>
+              <button title="Eliminar recordatorio" onClick={() => deleteReminder(reminder.id)}>
+                <Trash2 size={16} />
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function QuickNotesView({
+  notes,
+  draft,
+  setDraft,
+  addNote,
+  patchNote,
+  deleteNote,
+}: {
+  notes: QuickNote[];
+  draft: Omit<QuickNote, "id" | "updatedAt">;
+  setDraft: (draft: Omit<QuickNote, "id" | "updatedAt">) => void;
+  addNote: () => void;
+  patchNote: (id: string, patch: Partial<QuickNote>) => void;
+  deleteNote: (id: string) => void;
+}) {
+  return (
+    <div className="utility-layout">
+      <section className="panel wide">
+        <PanelHeader icon={StickyNote} title="Nueva nota rápida" />
+        <div className="note-form">
+          <input value={draft.title} placeholder="Título: Compra, ideas, viaje..." onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <select value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })}>
+            {noteColors.map((color) => <option key={color} value={color}>{color}</option>)}
+          </select>
+          <button className="primary" onClick={addNote}>
+            <Plus size={18} />
+            Añadir
+          </button>
+        </div>
+        <label className="field">
+          <span>Contenido</span>
+          <textarea value={draft.content} placeholder="Escribe una nota tipo lista de la compra, idea rápida, recordatorio informal..." onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
+        </label>
+      </section>
+
+      <section className="notes-grid">
+        {notes.length === 0 ? (
+          <section className="panel wide">
+            <Empty text="Aún no hay notas. Crea una nota rápida para compras, ideas o listas." />
+          </section>
+        ) : notes.map((note) => (
+          <article key={note.id} className="quick-note" style={{ background: note.color }}>
+            <div className="quick-note-head">
+              <input value={note.title} onChange={(event) => patchNote(note.id, { title: event.target.value })} />
+              <button title="Eliminar nota" onClick={() => deleteNote(note.id)}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <textarea value={note.content} onChange={(event) => patchNote(note.id, { content: event.target.value })} />
+            <small>Editada {new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(note.updatedAt))}</small>
+          </article>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function FocusView({
+  timers,
+  draft,
+  setDraft,
+  addTimer,
+  deleteTimer,
+  startTimer,
+  activeTimerId,
+  timerMode,
+  remainingSeconds,
+  running,
+  setRunning,
+  resetTimer,
+}: {
+  timers: StudyTimer[];
+  draft: Omit<StudyTimer, "id">;
+  setDraft: (draft: Omit<StudyTimer, "id">) => void;
+  addTimer: (timer?: Omit<StudyTimer, "id">) => void;
+  deleteTimer: (id: string) => void;
+  startTimer: (timer: StudyTimer, mode?: "focus" | "break") => void;
+  activeTimerId: string | null;
+  timerMode: "focus" | "break";
+  remainingSeconds: number;
+  running: boolean;
+  setRunning: (running: boolean) => void;
+  resetTimer: () => void;
+}) {
+  const activeTimer = timers.find((timer) => timer.id === activeTimerId);
+
+  return (
+    <div className="focus-layout">
+      <section className="panel wide focus-hero">
+        <PanelHeader icon={Timer} title="Temporizador activo" />
+        <div className="timer-display">
+          <span>{activeTimer ? activeTimer.title : "Elige un timer"}</span>
+          <strong>{formatTimer(remainingSeconds)}</strong>
+          <small>{timerMode === "focus" ? "Focus" : "Descanso"}</small>
+        </div>
+        <div className="timer-actions">
+          <button className="primary" disabled={!activeTimer} onClick={() => setRunning(!running)}>
+            {running ? <Pause size={18} /> : <Play size={18} />}
+            {running ? "Pausar" : "Empezar"}
+          </button>
+          <button className="secondary-action compact-action" disabled={!activeTimer} onClick={resetTimer}>
+            <RotateCcw size={17} />
+            Reset
+          </button>
+          {activeTimer && (
+            <button className="secondary-action compact-action" onClick={() => startTimer(activeTimer, timerMode === "focus" ? "break" : "focus")}>
+              {timerMode === "focus" ? "Descanso" : "Focus"}
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={RefreshCw} title="Presets recomendados" />
+        <div className="preset-grid">
+          {studyPresets.map((preset) => (
+            <button key={preset.title} className="preset-card" onClick={() => addTimer(preset)}>
+              <strong>{preset.title}</strong>
+              <span>{preset.focusMinutes}/{preset.breakMinutes} · {preset.cycles} rondas</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Plus} title="Crear timer propio" />
+        <div className="timer-form">
+          <input value={draft.title} placeholder="Ej. Estudiar física, leer, proyecto..." onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <input type="number" min="1" value={draft.focusMinutes} onChange={(event) => setDraft({ ...draft, focusMinutes: Number(event.target.value) })} />
+          <input type="number" min="1" value={draft.breakMinutes} onChange={(event) => setDraft({ ...draft, breakMinutes: Number(event.target.value) })} />
+          <input type="number" min="1" value={draft.cycles} onChange={(event) => setDraft({ ...draft, cycles: Number(event.target.value) })} />
+          <button className="primary" onClick={() => addTimer()}>
+            <Plus size={18} />
+            Añadir
+          </button>
+        </div>
+        <div className="form-hints">
+          <span>Focus min</span>
+          <span>Descanso min</span>
+          <span>Rondas</span>
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={ClipboardList} title="Tus timers" />
+        <div className="timer-list">
+          {timers.length === 0 ? <Empty text="Añade un preset o crea un temporizador propio para estudiar." /> : timers.map((timer) => (
+            <article key={timer.id} className={timer.id === activeTimerId ? "timer-card active" : "timer-card"}>
+              <div>
+                <strong>{timer.title}</strong>
+                <span>{timer.focusMinutes} min focus · {timer.breakMinutes} min descanso · {timer.cycles} rondas</span>
+              </div>
+              <button className="primary icon-only" title="Iniciar focus" onClick={() => startTimer(timer)}>
+                <Play size={16} />
+              </button>
+              <button title="Eliminar timer" onClick={() => deleteTimer(timer.id)}>
+                <Trash2 size={16} />
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function SportView({

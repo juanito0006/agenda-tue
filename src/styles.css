@@ -343,7 +343,9 @@ textarea {
 .courses-layout,
 .sport-layout,
 .platforms-layout,
-.ai-layout {
+.ai-layout,
+.utility-layout,
+.focus-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
@@ -621,7 +623,10 @@ textarea {
 .split-fields,
 .event-form,
 .course-form,
-.sport-form {
+.sport-form,
+.reminder-form,
+.note-form,
+.timer-form {
   display: grid;
   gap: 10px;
   margin-bottom: 14px;
@@ -657,6 +662,18 @@ textarea {
 
 .sport-form {
   grid-template-columns: 150px 150px minmax(220px, 1fr) 110px 130px 120px;
+}
+
+.reminder-form {
+  grid-template-columns: minmax(220px, 1fr) 150px 110px 160px 120px;
+}
+
+.note-form {
+  grid-template-columns: minmax(240px, 1fr) 150px 120px;
+}
+
+.timer-form {
+  grid-template-columns: minmax(240px, 1fr) 120px 120px 100px 120px;
 }
 
 .routine-form {
@@ -698,12 +715,162 @@ textarea {
 .calendar-event button,
 .course-card-head button,
 .sport-entry button,
-.ai-history-item button {
+.ai-history-item button,
+.reminder-card button,
+.quick-note button,
+.timer-card button {
   display: grid;
   place-items: center;
   border-radius: 8px;
   background: #f7e5df;
   color: var(--accent-dark);
+}
+
+.reminder-list,
+.timer-list {
+  display: grid;
+  gap: 10px;
+}
+
+.reminder-card,
+.timer-card {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 42px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.reminder-card.done strong {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.reminder-card div,
+.timer-card div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.reminder-card span,
+.reminder-card small,
+.timer-card span,
+.form-hints {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.notes-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.quick-note {
+  display: grid;
+  gap: 10px;
+  min-height: 230px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.quick-note-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 8px;
+}
+
+.quick-note input,
+.quick-note textarea {
+  border-color: rgba(23, 33, 29, 0.12);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.quick-note textarea {
+  min-height: 132px;
+}
+
+.quick-note small {
+  color: var(--muted);
+}
+
+.focus-hero {
+  display: grid;
+  gap: 16px;
+}
+
+.timer-display {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.timer-display span,
+.timer-display small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.timer-display strong {
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(3rem, 12vw, 7rem);
+  line-height: 1;
+}
+
+.timer-actions,
+.preset-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.preset-card {
+  display: grid;
+  gap: 6px;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+  color: var(--ink);
+  text-align: left;
+}
+
+.preset-card:hover,
+.timer-card.active {
+  border-color: #7cc5f2;
+  background: #eef8ff;
+}
+
+.preset-card span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.timer-card {
+  grid-template-columns: minmax(0, 1fr) 46px 42px;
+}
+
+.form-hints {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .ai-settings {
@@ -1198,7 +1365,9 @@ textarea {
 @media (max-width: 1200px) {
   .event-form,
   .sport-form,
-  .routine-form {
+  .routine-form,
+  .reminder-form,
+  .timer-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -1207,6 +1376,11 @@ textarea {
   }
 
   .platform-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .preset-grid,
+  .notes-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1244,10 +1418,12 @@ textarea {
   .day-layout,
   .routine-layout,
   .calendar-layout,
-  .courses-layout,
-  .sport-layout,
-  .platforms-layout,
-  .ai-layout {
+    .courses-layout,
+    .sport-layout,
+    .platforms-layout,
+    .ai-layout,
+    .utility-layout,
+    .focus-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1288,13 +1464,18 @@ textarea {
   .summary-band,
   .week-strip,
   .add-line,
-  .event-form,
-  .course-form,
-  .sport-form,
-  .routine-form,
-  .split-fields,
-  .platform-grid,
-  .course-grid {
+    .event-form,
+    .course-form,
+    .sport-form,
+    .routine-form,
+    .reminder-form,
+    .note-form,
+    .timer-form,
+    .split-fields,
+    .platform-grid,
+    .course-grid,
+    .preset-grid,
+    .notes-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1305,5 +1486,16 @@ textarea {
 
   .routine-pill {
     grid-template-columns: 1fr;
+  }
+
+  .resource-card,
+  .reminder-card,
+  .timer-card {
+    grid-template-columns: 1fr;
+  }
+
+  .timer-actions,
+  .resource-actions {
+    display: grid !important;
   }
 }
