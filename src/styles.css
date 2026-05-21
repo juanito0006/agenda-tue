@@ -120,12 +120,24 @@ button {
   position: sticky;
   top: 0;
   height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px 18px;
   border-right: 1px solid var(--line);
   background: #fcfbf8;
   display: flex;
   flex-direction: column;
   gap: 22px;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #d7d2c6;
 }
 
 .brand,
@@ -506,6 +518,18 @@ textarea {
   font-size: 1.08rem;
 }
 
+.dashboard-week-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.dashboard-week-head .panel-header {
+  margin-bottom: 0;
+}
+
 .week-strip {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -712,7 +736,7 @@ textarea {
 }
 
 .event-form {
-  grid-template-columns: minmax(200px, 1.2fr) 150px 110px 110px minmax(180px, 1fr) 130px 120px;
+  grid-template-columns: minmax(200px, 1.2fr) 150px 110px 110px minmax(170px, 1fr) minmax(170px, 1fr) 130px 120px;
 }
 
 .event-type-legend {
@@ -1467,6 +1491,39 @@ textarea {
   font-size: 0.88rem;
 }
 
+.calendar-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.period-switcher {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.period-switcher button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.period-switcher button:hover {
+  background: var(--surface-soft);
+}
+
 .segmented-control {
   display: inline-flex;
   gap: 4px;
@@ -1899,6 +1956,20 @@ textarea {
   .calendar-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .calendar-toolbar-actions,
+  .dashboard-week-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .period-switcher {
+    width: 100%;
+  }
+
+  .period-switcher button {
+    flex: 1;
   }
 
   .segmented-control {

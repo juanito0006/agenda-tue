@@ -71,6 +71,7 @@ interface CalendarEvent {
   end: string;
   calendarId: string;
   type: EventType;
+  location: string;
   notes: string;
 }
 
@@ -389,6 +390,7 @@ function normalizeData(parsed: Partial<AgendaData>): AgendaData {
     ? parsed.events.map((event) => ({
       ...event,
       type: event.type && event.type in eventTypeStyles ? event.type : "clase",
+      location: event.location ?? "",
     }))
     : [];
 
@@ -441,6 +443,7 @@ export default function App() {
     end: "10:00",
     calendarId: "general",
     type: "clase" as EventType,
+    location: "",
     notes: "",
   });
   const [courseDraft, setCourseDraft] = useState({ name: "", color: colors[3], location: "", notes: "" });
@@ -681,10 +684,10 @@ export default function App() {
       ...current,
       events: [
         ...current.events,
-        { ...eventDraft, id: crypto.randomUUID(), title: eventDraft.title.trim() },
+        { ...eventDraft, id: crypto.randomUUID(), title: eventDraft.title.trim(), location: eventDraft.location.trim() },
       ].sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start)),
     }));
-    setEventDraft({ ...eventDraft, title: "", notes: "" });
+    setEventDraft({ ...eventDraft, title: "", location: "", notes: "" });
   }
 
   function deleteEvent(id: string) {
@@ -1287,6 +1290,7 @@ export default function App() {
             calendars={data.courseCalendars}
             profile={data.profile}
             stats={stats}
+            setSelectedDate={setSelectedDate}
             onOpenCalendar={() => setView("calendar")}
             onOpenDay={(day) => {
               setSelectedDate(day);
@@ -1299,6 +1303,7 @@ export default function App() {
         {view === "calendar" && (
           <CalendarView
             selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
             weekDays={weekDays}
             events={data.events}
             calendars={data.courseCalendars}
@@ -1726,6 +1731,23 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(amount);
 }
 
+function softBackground(color: string, fallback: string) {
+  const match = color.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return fallback;
+  const [, r, g, b] = match;
+  return `rgba(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)}, 0.13)`;
+}
+
+function eventVisualStyle(event: CalendarEvent, calendar?: CourseCalendar) {
+  const typeStyle = eventTypeStyles[event.type];
+  const color = calendar?.color || typeStyle.color;
+  return { color, background: softBackground(color, typeStyle.background) };
+}
+
+function eventLocation(event: CalendarEvent, calendar?: CourseCalendar) {
+  return event.location?.trim() || calendar?.location?.trim() || "";
+}
+
 function SettingsPanel({
   settings,
   patchSettings,
@@ -1788,6 +1810,7 @@ function Dashboard({
   calendars,
   profile,
   stats,
+  setSelectedDate,
   onOpenCalendar,
   onOpenDay,
   onToggleTask,
@@ -1800,6 +1823,7 @@ function Dashboard({
   calendars: CourseCalendar[];
   profile: UserProfile;
   stats: { openTasks: Task[]; urgentTasks: Task[]; completedThisWeek: number; sportMinutes: number };
+  setSelectedDate: (date: string) => void;
   onOpenCalendar: () => void;
   onOpenDay: (day: string) => void;
   onToggleTask: (task: Task) => void;
@@ -1832,7 +1856,20 @@ function Dashboard({
       </section>
 
       <section className="panel wide">
-        <PanelHeader icon={CalendarDays} title="Semana tipo calendario" />
+        <div className="dashboard-week-head">
+          <PanelHeader icon={CalendarDays} title="Semana tipo calendario" />
+          <div className="period-switcher" aria-label="Cambiar semana del dashboard">
+            <button onClick={() => setSelectedDate(addDays(selectedDate, -7))}>
+              <ChevronLeft size={16} />
+              Semana
+            </button>
+            <button onClick={() => setSelectedDate(todayKey())}>Hoy</button>
+            <button onClick={() => setSelectedDate(addDays(selectedDate, 7))}>
+              Semana
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
         <div className="week-strip">
           {weekDays.map((day) => {
             const dayEvents = events.filter((event) => event.date === day);
@@ -1892,6 +1929,7 @@ function Dashboard({
 
 function CalendarView({
   selectedDate,
+  setSelectedDate,
   weekDays,
   events,
   calendars,
@@ -1902,6 +1940,7 @@ function CalendarView({
   deleteEvent,
 }: {
   selectedDate: string;
+  setSelectedDate: (date: string) => void;
   weekDays: string[];
   events: CalendarEvent[];
   calendars: CourseCalendar[];
@@ -1917,6 +1956,8 @@ function CalendarView({
   const monthDays = monthGridDays(selectedDate);
   const selectedMonth = fromDateKey(selectedDate).getMonth();
   const monthLabel = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(fromDateKey(selectedDate));
+  const weekLabel = `${formatDate(weekDays[0], "short")} - ${formatDate(weekDays[6], "short")}`;
+  const movePeriod = (amount: number) => setSelectedDate(addDays(selectedDate, mode === "day" ? amount : amount * 7));
 
   return (
     <div className="calendar-layout">
@@ -1931,6 +1972,7 @@ function CalendarView({
             <option value="general">General</option>
             {calendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name}</option>)}
           </select>
+          <input value={draft.location} placeholder="Lugar: aula, oficina, online..." onChange={(event) => setDraft({ ...draft, location: event.target.value })} />
           <select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as EventType })}>
             <option value="clase">clase</option>
             <option value="estudio">estudio</option>
@@ -1962,12 +2004,25 @@ function CalendarView({
         <div className="calendar-toolbar">
           <div>
             <h2>{mode === "day" ? formatDate(selectedDate) : mode === "week" ? "Semana" : monthLabel}</h2>
-            <span>{mode === "day" ? "Vista del día seleccionado" : mode === "week" ? "Vista por horas" : "Vista del mes completo"}</span>
+            <span>{mode === "day" ? "Vista del día seleccionado" : mode === "week" ? weekLabel : "Vista del mes completo"}</span>
           </div>
-          <div className="segmented-control" aria-label="Cambiar vista de calendario">
-            <button className={mode === "day" ? "active" : ""} onClick={() => setMode("day")}>Día</button>
-            <button className={mode === "week" ? "active" : ""} onClick={() => setMode("week")}>Semana</button>
-            <button className={mode === "month" ? "active" : ""} onClick={() => setMode("month")}>Mes</button>
+          <div className="calendar-toolbar-actions">
+            <div className="period-switcher" aria-label="Cambiar semana o día">
+              <button onClick={() => movePeriod(-1)}>
+                <ChevronLeft size={16} />
+                {mode === "day" ? "Día" : "Semana"}
+              </button>
+              <button onClick={() => setSelectedDate(todayKey())}>Hoy</button>
+              <button onClick={() => movePeriod(1)}>
+                {mode === "day" ? "Día" : "Semana"}
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <div className="segmented-control" aria-label="Cambiar vista de calendario">
+              <button className={mode === "day" ? "active" : ""} onClick={() => setMode("day")}>Día</button>
+              <button className={mode === "week" ? "active" : ""} onClick={() => setMode("week")}>Semana</button>
+              <button className={mode === "month" ? "active" : ""} onClick={() => setMode("month")}>Mes</button>
+            </div>
           </div>
         </div>
       </section>
@@ -1988,8 +2043,9 @@ function CalendarView({
             {hours.map((hour) => <div key={hour} className="hour-line" />)}
             {dayEvents.map((event) => {
               const calendar = calendars.find((item) => item.id === event.calendarId);
-              const typeStyle = eventTypeStyles[event.type];
+              const eventStyle = eventVisualStyle(event, calendar);
               const position = eventPosition(event);
+              const location = eventLocation(event, calendar);
               return (
                 <article
                   key={event.id}
@@ -1997,13 +2053,13 @@ function CalendarView({
                   style={{
                     top: position.top,
                     height: position.height,
-                    borderColor: typeStyle.color,
-                    background: typeStyle.background,
+                    borderColor: eventStyle.color,
+                    background: eventStyle.background,
                   }}
                 >
                   <strong>{event.title}</strong>
                   <span>{event.start} - {event.end}</span>
-                  <small>{typeStyle.label} · {calendar?.name ?? "General"}</small>
+                  <small>{eventTypeStyles[event.type].label} · {calendar?.name ?? "General"}{location ? ` · ${location}` : ""}</small>
                   <button title="Eliminar evento" onClick={() => deleteEvent(event.id)}>
                     <Trash2 size={14} />
                   </button>
@@ -2033,8 +2089,9 @@ function CalendarView({
               {hours.map((hour) => <div key={hour} className="hour-line" />)}
               {weekEvents.filter((event) => event.date === day).map((event) => {
                 const calendar = calendars.find((item) => item.id === event.calendarId);
-                const typeStyle = eventTypeStyles[event.type];
+                const eventStyle = eventVisualStyle(event, calendar);
                 const position = eventPosition(event);
+                const location = eventLocation(event, calendar);
                 return (
                   <article
                     key={event.id}
@@ -2042,13 +2099,13 @@ function CalendarView({
                     style={{
                       top: position.top,
                       height: position.height,
-                      borderColor: typeStyle.color,
-                      background: typeStyle.background,
+                      borderColor: eventStyle.color,
+                      background: eventStyle.background,
                     }}
                   >
                     <strong>{event.title}</strong>
                     <span>{event.start} - {event.end}</span>
-                    <small>{typeStyle.label} · {calendar?.name ?? "General"}</small>
+                    <small>{eventTypeStyles[event.type].label} · {calendar?.name ?? "General"}{location ? ` · ${location}` : ""}</small>
                     <button title="Eliminar evento" onClick={() => deleteEvent(event.id)}>
                       <Trash2 size={14} />
                     </button>
@@ -2077,15 +2134,16 @@ function CalendarView({
                 <div className="month-events">
                   {dayEvents.slice(0, 4).map((event) => {
                     const calendar = calendars.find((item) => item.id === event.calendarId);
-                    const typeStyle = eventTypeStyles[event.type];
+                    const eventStyle = eventVisualStyle(event, calendar);
+                    const location = eventLocation(event, calendar);
                     return (
                       <article
                         key={event.id}
                         className="month-event"
-                        style={{ borderColor: typeStyle.color, background: typeStyle.background }}
+                        style={{ borderColor: eventStyle.color, background: eventStyle.background }}
                       >
                         <strong>{event.title}</strong>
-                        <span>{event.start} · {typeStyle.label} · {calendar?.name ?? "General"}</span>
+                        <span>{event.start} · {eventTypeStyles[event.type].label} · {calendar?.name ?? "General"}{location ? ` · ${location}` : ""}</span>
                         <button title="Eliminar evento" onClick={() => deleteEvent(event.id)}>
                           <Trash2 size={13} />
                         </button>
@@ -2534,7 +2592,8 @@ function buildAiPrompt({
 }) {
   const eventLines = events.map((event) => {
     const calendar = calendars.find((item) => item.id === event.calendarId);
-    return `- ${event.start}-${event.end}: ${event.title} (${eventTypeStyles[event.type].label}, ${calendar?.name ?? "General"})`;
+    const location = eventLocation(event, calendar);
+    return `- ${event.start}-${event.end}: ${event.title} (${eventTypeStyles[event.type].label}, ${calendar?.name ?? "General"}${location ? `, ${location}` : ""})`;
   });
   const taskLines = tasks.map((task) => `- ${task.title} (${task.priority}, ${task.category})`);
   const urgentLines = urgentTasks.map((task) => `- ${task.date}: ${task.title} (${task.priority})`);
