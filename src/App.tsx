@@ -138,6 +138,25 @@ interface Reminder {
   notes: string;
 }
 
+type QuickAddKind = "event" | "task" | "reminder" | "sport";
+
+interface QuickAddSuggestion {
+  kind: QuickAddKind;
+  title: string;
+  date: string;
+  start?: string;
+  end?: string;
+  eventType?: EventType;
+  priority?: Priority;
+  category?: TaskCategory;
+  calendarId?: string;
+  location?: string;
+  duration?: number;
+  sportType?: string;
+  notes?: string;
+  confidence: "ia" | "simple";
+}
+
 interface QuickNote {
   id: string;
   title: string;
@@ -479,6 +498,9 @@ export default function App() {
   const [aiApiKey, setAiApiKey] = useState(() => localStorage.getItem("agenda-tue-openai-key") ?? "");
   const [aiModel, setAiModel] = useState(() => localStorage.getItem("agenda-tue-ai-model") ?? "gpt-5.2");
   const [aiLoading, setAiLoading] = useState(false);
+  const [quickAddText, setQuickAddText] = useState("");
+  const [quickAddSuggestion, setQuickAddSuggestion] = useState<QuickAddSuggestion | null>(null);
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [sportDraft, setSportDraft] = useState({
     date: todayKey(),
     type: "Gym",
@@ -645,6 +667,161 @@ export default function App() {
 
   function updateData(updater: (current: AgendaData) => AgendaData) {
     setData((current) => updater(current));
+  }
+
+  async function analyzeQuickAdd() {
+    if (!quickAddText.trim()) return;
+    setQuickAddLoading(true);
+    setQuickAddSuggestion(null);
+
+    if (aiApiKey.trim()) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${aiApiKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model: aiModel.trim() || "gpt-5.2",
+            instructions: [
+              "Clasifica una frase rápida de agenda y responde SOLO JSON válido.",
+              "kind debe ser event, task, reminder o sport.",
+              "Usa fechas YYYY-MM-DD y horas HH:MM.",
+              "eventType debe ser clase, estudio, deadline, exam, work, tarea o personal.",
+              "priority debe ser normal, deadline, exam o lab.",
+              "category debe ser estudio, personal, admin o salud.",
+              `Fecha base: ${selectedDate}.`,
+              `Materias disponibles: ${data.courseCalendars.map((calendar) => `${calendar.id}:${calendar.name}`).join(", ") || "ninguna"}.`,
+            ].join("\n"),
+            input: quickAddText.trim(),
+            text: {
+              format: {
+                type: "json_schema",
+                name: "quick_add",
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    kind: { type: "string", enum: ["event", "task", "reminder", "sport"] },
+                    title: { type: "string" },
+                    date: { type: "string" },
+                    start: { type: "string" },
+                    end: { type: "string" },
+                    eventType: { type: "string", enum: ["clase", "estudio", "deadline", "exam", "work", "tarea", "personal"] },
+                    priority: { type: "string", enum: ["normal", "deadline", "exam", "lab"] },
+                    category: { type: "string", enum: ["estudio", "personal", "admin", "salud"] },
+                    calendarId: { type: "string" },
+                    location: { type: "string" },
+                    duration: { type: "number" },
+                    sportType: { type: "string" },
+                    notes: { type: "string" },
+                  },
+                  required: ["kind", "title", "date"],
+                },
+              },
+            },
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result?.error?.message ?? "No he podido usar la IA.");
+        const parsed = JSON.parse(extractResponseText(result)) as Partial<QuickAddSuggestion>;
+        setQuickAddSuggestion({
+          ...localQuickAddSuggestion(quickAddText, selectedDate, data.courseCalendars),
+          ...parsed,
+          confidence: "ia",
+        });
+      } catch {
+        setQuickAddSuggestion(localQuickAddSuggestion(quickAddText, selectedDate, data.courseCalendars));
+      } finally {
+        setQuickAddLoading(false);
+      }
+      return;
+    }
+
+    setQuickAddSuggestion(localQuickAddSuggestion(quickAddText, selectedDate, data.courseCalendars));
+    setQuickAddLoading(false);
+  }
+
+  function confirmQuickAdd() {
+    if (!quickAddSuggestion) return;
+    const suggestion = quickAddSuggestion;
+    updateData((current) => {
+      if (suggestion.kind === "event") {
+        return {
+          ...current,
+          events: [
+            ...current.events,
+            {
+              id: crypto.randomUUID(),
+              title: suggestion.title.trim(),
+              date: suggestion.date,
+              start: suggestion.start ?? "09:00",
+              end: suggestion.end ?? addMinutes(suggestion.start ?? "09:00", 60),
+              calendarId: suggestion.calendarId && suggestion.calendarId !== "general" ? suggestion.calendarId : current.courseCalendars[0]?.id ?? "general",
+              type: suggestion.eventType ?? "personal",
+              location: suggestion.location ?? "",
+              notes: suggestion.notes ?? "",
+            },
+          ].sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start)),
+        };
+      }
+
+      if (suggestion.kind === "reminder") {
+        return {
+          ...current,
+          reminders: [
+            {
+              id: crypto.randomUUID(),
+              title: suggestion.title.trim(),
+              date: suggestion.date,
+              time: suggestion.start ?? "10:00",
+              category: suggestion.category ?? "personal",
+              completed: false,
+              notes: suggestion.notes ?? "",
+            },
+            ...current.reminders,
+          ].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)),
+        };
+      }
+
+      if (suggestion.kind === "sport") {
+        return {
+          ...current,
+          sports: [
+            {
+              id: crypto.randomUUID(),
+              date: suggestion.date,
+              type: suggestion.sportType ?? "Deporte",
+              activity: suggestion.title.trim(),
+              duration: suggestion.duration ?? 60,
+              intensity: "media",
+              notes: suggestion.notes ?? "",
+            },
+            ...current.sports,
+          ],
+        };
+      }
+
+      return {
+        ...current,
+        tasks: [
+          {
+            id: crypto.randomUUID(),
+            title: suggestion.title.trim(),
+            date: suggestion.date,
+            completed: false,
+            priority: suggestion.priority ?? "normal",
+            category: suggestion.category ?? "estudio",
+            notes: suggestion.notes ?? "",
+          },
+          ...current.tasks,
+        ],
+      };
+    });
+    setSelectedDate(suggestion.date);
+    setQuickAddText("");
+    setQuickAddSuggestion(null);
   }
 
   function addTask(date = selectedDate) {
@@ -1272,6 +1449,17 @@ export default function App() {
             <Settings size={18} />
           </button>
         </header>
+        <QuickAddBar
+          text={quickAddText}
+          setText={setQuickAddText}
+          suggestion={quickAddSuggestion}
+          loading={quickAddLoading}
+          hasAi={Boolean(aiApiKey.trim())}
+          calendars={data.courseCalendars}
+          analyze={analyzeQuickAdd}
+          confirm={confirmQuickAdd}
+          clear={() => setQuickAddSuggestion(null)}
+        />
         {settingsOpen && (
           <SettingsPanel
             settings={data.settings}
@@ -1748,6 +1936,124 @@ function eventLocation(event: CalendarEvent, calendar?: CourseCalendar) {
   return event.location?.trim() || calendar?.location?.trim() || "";
 }
 
+function parseTime(text: string) {
+  const match = text.match(/(?:a\s+las|alas|sobre|at)?\s*(\d{1,2})(?::|\.|h)?(\d{2})?\s*(am|pm)?/i);
+  if (!match) return undefined;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? "00");
+  const meridiem = match[3]?.toLowerCase();
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  if (hour > 23 || minute > 59) return undefined;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function parseDateFromText(text: string, baseDate = todayKey()) {
+  const lower = text.toLowerCase();
+  if (/\b(pasado mañana|pasadomañana)\b/.test(lower)) return addDays(baseDate, 2);
+  if (/\b(mañana|tomorrow)\b/.test(lower)) return addDays(baseDate, 1);
+  if (/\b(hoy|today)\b/.test(lower)) return baseDate;
+
+  const weekdaysLong = ["lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo"];
+  const foundIndex = weekdaysLong.findIndex((day) => lower.includes(day));
+  if (foundIndex >= 0) {
+    const target = foundIndex === 3 ? 2 : foundIndex > 3 ? foundIndex - 1 : foundIndex;
+    const current = weekdayIndex(baseDate);
+    const daysAhead = (target - current + 7) % 7 || 7;
+    return addDays(baseDate, daysAhead);
+  }
+
+  const explicit = lower.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+  if (explicit) {
+    const day = Number(explicit[1]);
+    const month = Number(explicit[2]) - 1;
+    const base = fromDateKey(baseDate);
+    const year = explicit[3] ? Number(explicit[3].length === 2 ? `20${explicit[3]}` : explicit[3]) : base.getFullYear();
+    return toDateKey(new Date(year, month, day));
+  }
+
+  return baseDate;
+}
+
+function addMinutes(time: string, minutes: number) {
+  const [hour, minute] = time.split(":").map(Number);
+  const date = new Date(2026, 0, 1, hour, minute + minutes);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function findCalendarForText(text: string, calendars: CourseCalendar[]) {
+  const lower = text.toLowerCase();
+  return calendars.find((calendar) => lower.includes(calendar.name.toLowerCase())) ?? calendars[0];
+}
+
+function localQuickAddSuggestion(text: string, selectedDate: string, calendars: CourseCalendar[]): QuickAddSuggestion {
+  const lower = text.toLowerCase();
+  const date = parseDateFromText(text, selectedDate);
+  const start = parseTime(text);
+  const calendar = findCalendarForText(text, calendars);
+  const locationMatch = text.match(/\b(?:en|at)\s+([a-zA-ZÀ-ÿ0-9 ._-]{3,})$/i);
+  const location = locationMatch?.[1]?.trim() ?? "";
+
+  if (/\b(gym|gimnasio|entreno|entrenar|tenis|run|correr|deporte)\b/.test(lower)) {
+    return {
+      kind: "sport",
+      title: text.trim(),
+      date,
+      start,
+      sportType: lower.includes("tenis") ? "Tenis" : lower.includes("run") || lower.includes("correr") ? "Running" : "Gym",
+      duration: lower.match(/(\d{2,3})\s*(min|minutos)/)?.[1] ? Number(lower.match(/(\d{2,3})\s*(min|minutos)/)?.[1]) : 60,
+      notes: location ? `Lugar: ${location}` : "",
+      confidence: "simple",
+    };
+  }
+
+  if (/\b(examen|exam|deadline|clase|meeting|reunión|reunion|cita|turno|trabajo)\b/.test(lower) || start) {
+    const eventType: EventType = lower.includes("examen") || lower.includes("exam")
+      ? "exam"
+      : lower.includes("deadline")
+        ? "deadline"
+        : lower.includes("trabajo") || lower.includes("turno")
+          ? "work"
+          : lower.includes("clase")
+            ? "clase"
+            : "personal";
+    return {
+      kind: "event",
+      title: text.trim(),
+      date,
+      start: start ?? "09:00",
+      end: addMinutes(start ?? "09:00", eventType === "exam" ? 120 : 60),
+      eventType,
+      calendarId: calendar?.id ?? "general",
+      location,
+      notes: "",
+      confidence: "simple",
+    };
+  }
+
+  if (/\b(recordar|recuerdame|recuérdame|avisame|avísame)\b/.test(lower)) {
+    return {
+      kind: "reminder",
+      title: text.trim().replace(/^(recordar|recuerdame|recuérdame|avisame|avísame)\s+/i, ""),
+      date,
+      start: start ?? "10:00",
+      category: "personal",
+      notes: "",
+      confidence: "simple",
+    };
+  }
+
+  return {
+    kind: "task",
+    title: text.trim(),
+    date,
+    priority: lower.includes("deadline") ? "deadline" : lower.includes("lab") ? "lab" : lower.includes("examen") ? "exam" : "normal",
+    category: lower.includes("comprar") || lower.includes("compra") ? "personal" : "estudio",
+    notes: "",
+    confidence: "simple",
+  };
+}
+
 function SettingsPanel({
   settings,
   patchSettings,
@@ -1797,6 +2103,72 @@ function SettingsPanel({
           <span>Modo compacto</span>
         </label>
       </div>
+    </section>
+  );
+}
+
+function QuickAddBar({
+  text,
+  setText,
+  suggestion,
+  loading,
+  hasAi,
+  calendars,
+  analyze,
+  confirm,
+  clear,
+}: {
+  text: string;
+  setText: (text: string) => void;
+  suggestion: QuickAddSuggestion | null;
+  loading: boolean;
+  hasAi: boolean;
+  calendars: CourseCalendar[];
+  analyze: () => void;
+  confirm: () => void;
+  clear: () => void;
+}) {
+  const calendar = calendars.find((item) => item.id === suggestion?.calendarId);
+  const detail = suggestion ? [
+    suggestion.kind === "event" ? (eventTypeStyles[suggestion.eventType ?? "personal"].label) : suggestion.kind === "sport" ? "Deporte" : suggestion.kind === "reminder" ? "Recordatorio" : "Tarea",
+    formatDate(suggestion.date, "short"),
+    suggestion.start,
+    calendar?.name,
+    suggestion.location,
+  ].filter(Boolean).join(" · ") : "";
+
+  return (
+    <section className="quick-add-panel">
+      <div className="quick-add-input">
+        <Sparkles size={19} />
+        <input
+          value={text}
+          placeholder="Añadir rápido: examen mañana a las 10 de Signals, gym jueves 18:00, comprar arroz..."
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") analyze();
+          }}
+        />
+        <button className="primary" onClick={analyze} disabled={loading || !text.trim()}>
+          {loading ? "Leyendo..." : hasAi ? "Entender con IA" : "Clasificar"}
+        </button>
+      </div>
+      {suggestion && (
+        <div className="quick-add-preview">
+          <div>
+            <span>{suggestion.confidence === "ia" ? "Propuesta IA" : "Propuesta rápida"}</span>
+            <strong>{suggestion.title}</strong>
+            <small>{detail}</small>
+          </div>
+          <div className="quick-add-actions">
+            <button className="secondary-action compact-action" onClick={clear}>Editar</button>
+            <button className="primary" onClick={confirm}>
+              <Check size={17} />
+              Confirmar
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
