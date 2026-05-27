@@ -14,6 +14,7 @@
   Download,
   Dumbbell,
   Globe,
+  GraduationCap,
   Layers,
   Link,
   LayoutDashboard,
@@ -38,7 +39,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase, type AuthSession } from "./supabaseClient";
 
-type View = "dashboard" | "calendar" | "courses" | "reminders" | "notes" | "focus" | "recipes" | "money" | "sport" | "platforms" | "customize" | "plans" | "ai" | "day";
+type View = "dashboard" | "calendar" | "courses" | "examPrep" | "reminders" | "notes" | "focus" | "recipes" | "money" | "sport" | "platforms" | "customize" | "plans" | "ai" | "day";
 type Priority = "normal" | "deadline" | "exam" | "lab";
 type TaskCategory = "estudio" | "personal" | "admin" | "salud";
 type RoutineType = "clase" | "estudio" | "deporte" | "personal";
@@ -138,6 +139,24 @@ interface Reminder {
   notes: string;
 }
 
+interface ExamPlan {
+  id: string;
+  courseId: string;
+  title: string;
+  examDate: string;
+  color: string;
+  notes: string;
+}
+
+interface ExamFocusDay {
+  id: string;
+  date: string;
+  courseId: string;
+  title: string;
+  color: string;
+  notes: string;
+}
+
 type QuickAddKind = "event" | "task" | "reminder" | "sport";
 
 interface QuickAddSuggestion {
@@ -227,6 +246,8 @@ interface AgendaData {
   notes: Record<string, DailyNote>;
   profile: UserProfile;
   reminders: Reminder[];
+  examPlans: ExamPlan[];
+  examFocusDays: ExamFocusDay[];
   quickNotes: QuickNote[];
   studyTimers: StudyTimer[];
   recipes: Recipe[];
@@ -303,6 +324,8 @@ const initialData: AgendaData = {
   aiMessages: [],
   notes: {},
   reminders: [],
+  examPlans: [],
+  examFocusDays: [],
   quickNotes: [],
   studyTimers: [],
   recipes: [],
@@ -424,6 +447,8 @@ function normalizeData(parsed: Partial<AgendaData>): AgendaData {
     aiMessages: Array.isArray(parsed.aiMessages) ? parsed.aiMessages : [],
     notes: parsed.notes ?? {},
     reminders: Array.isArray(parsed.reminders) ? parsed.reminders : [],
+    examPlans: Array.isArray(parsed.examPlans) ? parsed.examPlans : [],
+    examFocusDays: Array.isArray(parsed.examFocusDays) ? parsed.examFocusDays : [],
     quickNotes: Array.isArray(parsed.quickNotes) ? parsed.quickNotes : [],
     studyTimers: Array.isArray(parsed.studyTimers) ? parsed.studyTimers : [],
     recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
@@ -468,6 +493,8 @@ export default function App() {
   const [courseDraft, setCourseDraft] = useState({ name: "", color: colors[3], location: "", notes: "" });
   const [quickLinkDraft, setQuickLinkDraft] = useState({ name: "", url: "", description: "" });
   const [reminderDraft, setReminderDraft] = useState({ title: "", date: todayKey(), time: "10:00", category: "personal", notes: "" });
+  const [examDraft, setExamDraft] = useState({ courseId: "", title: "", examDate: todayKey(), notes: "" });
+  const [examFocusDraft, setExamFocusDraft] = useState({ startDate: todayKey(), endDate: todayKey(), courseId: "", title: "", notes: "" });
   const [quickNoteDraft, setQuickNoteDraft] = useState({ title: "", content: "", color: noteColors[0] });
   const [timerDraft, setTimerDraft] = useState({ title: "", focusMinutes: 25, breakMinutes: 5, cycles: 4 });
   const [recipeDraft, setRecipeDraft] = useState<Omit<Recipe, "id" | "favorite">>({
@@ -632,6 +659,7 @@ export default function App() {
     setSportDraft((current) => ({ ...current, date: selectedDate }));
     setReminderDraft((current) => ({ ...current, date: selectedDate }));
     setMoneyDraft((current) => ({ ...current, date: selectedDate }));
+    setExamFocusDraft((current) => ({ ...current, startDate: selectedDate, endDate: selectedDate }));
   }, [selectedDate, data.courseCalendars]);
 
   useEffect(() => {
@@ -1003,6 +1031,60 @@ export default function App() {
     updateData((current) => ({ ...current, reminders: current.reminders.filter((reminder) => reminder.id !== id) }));
   }
 
+  function addExamPlan() {
+    const course = data.courseCalendars.find((calendar) => calendar.id === examDraft.courseId);
+    const title = examDraft.title.trim() || course?.name.trim();
+    if (!title || !examDraft.examDate) return;
+    updateData((current) => ({
+      ...current,
+      examPlans: [
+        ...current.examPlans,
+        {
+          id: crypto.randomUUID(),
+          courseId: course?.id ?? "custom",
+          title,
+          examDate: examDraft.examDate,
+          color: course?.color ?? colors[current.examPlans.length % colors.length],
+          notes: examDraft.notes.trim(),
+        },
+      ].sort((a, b) => a.examDate.localeCompare(b.examDate)),
+    }));
+    setExamDraft({ courseId: "", title: "", examDate: addDays(examDraft.examDate, 1), notes: "" });
+  }
+
+  function deleteExamPlan(id: string) {
+    updateData((current) => ({ ...current, examPlans: current.examPlans.filter((plan) => plan.id !== id) }));
+  }
+
+  function addExamFocusDays() {
+    const course = data.courseCalendars.find((calendar) => calendar.id === examFocusDraft.courseId);
+    const title = examFocusDraft.title.trim() || course?.name.trim();
+    if (!title || !examFocusDraft.startDate || !examFocusDraft.endDate) return;
+    const days = dateRangeKeys(examFocusDraft.startDate, examFocusDraft.endDate);
+    updateData((current) => {
+      const color = course?.color ?? colors[current.examFocusDays.length % colors.length];
+      const newDays = days
+        .filter((day) => !current.examFocusDays.some((focusDay) => focusDay.date === day && focusDay.title === title))
+        .map((day) => ({
+          id: crypto.randomUUID(),
+          date: day,
+          courseId: course?.id ?? "custom",
+          title,
+          color,
+          notes: examFocusDraft.notes.trim(),
+        }));
+      return {
+        ...current,
+        examFocusDays: [...current.examFocusDays, ...newDays].sort((a, b) => a.date.localeCompare(b.date)),
+      };
+    });
+    setExamFocusDraft({ ...examFocusDraft, notes: "" });
+  }
+
+  function deleteExamFocusDay(id: string) {
+    updateData((current) => ({ ...current, examFocusDays: current.examFocusDays.filter((day) => day.id !== id) }));
+  }
+
   function addQuickNote() {
     if (!quickNoteDraft.title.trim() && !quickNoteDraft.content.trim()) return;
     updateData((current) => ({
@@ -1360,6 +1442,7 @@ export default function App() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "calendar", label: "Calendario", icon: CalendarDays },
     { id: "courses", label: "Materias", icon: Layers },
+    { id: "examPrep", label: "Exámenes", icon: GraduationCap },
     { id: "reminders", label: "Recordatorios", icon: Bell },
     { id: "notes", label: "Notas", icon: StickyNote },
     { id: "focus", label: "Focus", icon: Timer },
@@ -1514,6 +1597,24 @@ export default function App() {
             deleteCourseCalendar={deleteCourseCalendar}
             profile={data.profile}
             patchProfile={patchProfile}
+          />
+        )}
+
+        {view === "examPrep" && (
+          <ExamPrepView
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            calendars={data.courseCalendars}
+            examPlans={data.examPlans}
+            focusDays={data.examFocusDays}
+            examDraft={examDraft}
+            setExamDraft={setExamDraft}
+            focusDraft={examFocusDraft}
+            setFocusDraft={setExamFocusDraft}
+            addExamPlan={addExamPlan}
+            deleteExamPlan={deleteExamPlan}
+            addFocusDays={addExamFocusDays}
+            deleteFocusDay={deleteExamFocusDay}
           />
         )}
 
@@ -1901,6 +2002,7 @@ function viewTitle(view: View) {
     dashboard: "Dashboard semanal",
     calendar: "Calendario semanal",
     courses: "Materias y centro",
+    examPrep: "Plan de exámenes",
     reminders: "Recordatorios",
     notes: "Notas rápidas",
     focus: "Focus de estudio",
@@ -1979,6 +2081,18 @@ function addMinutes(time: string, minutes: number) {
   const [hour, minute] = time.split(":").map(Number);
   const date = new Date(2026, 0, 1, hour, minute + minutes);
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function dateRangeKeys(startDate: string, endDate: string) {
+  const start = startDate <= endDate ? startDate : endDate;
+  const end = startDate <= endDate ? endDate : startDate;
+  const days: string[] = [];
+  let current = start;
+  while (current <= end) {
+    days.push(current);
+    current = addDays(current, 1);
+  }
+  return days;
 }
 
 function findCalendarForText(text: string, calendars: CourseCalendar[]) {
@@ -2615,6 +2729,185 @@ function CoursesView({
             <small>{events.filter((event) => event.calendarId === calendar.id).length} eventos vinculados</small>
           </article>
         ))}
+      </section>
+    </div>
+  );
+}
+
+function ExamPrepView({
+  selectedDate,
+  setSelectedDate,
+  calendars,
+  examPlans,
+  focusDays,
+  examDraft,
+  setExamDraft,
+  focusDraft,
+  setFocusDraft,
+  addExamPlan,
+  deleteExamPlan,
+  addFocusDays,
+  deleteFocusDay,
+}: {
+  selectedDate: string;
+  setSelectedDate: (date: string) => void;
+  calendars: CourseCalendar[];
+  examPlans: ExamPlan[];
+  focusDays: ExamFocusDay[];
+  examDraft: { courseId: string; title: string; examDate: string; notes: string };
+  setExamDraft: (draft: { courseId: string; title: string; examDate: string; notes: string }) => void;
+  focusDraft: { startDate: string; endDate: string; courseId: string; title: string; notes: string };
+  setFocusDraft: (draft: { startDate: string; endDate: string; courseId: string; title: string; notes: string }) => void;
+  addExamPlan: () => void;
+  deleteExamPlan: (id: string) => void;
+  addFocusDays: () => void;
+  deleteFocusDay: (id: string) => void;
+}) {
+  const monthDays = monthGridDays(selectedDate);
+  const selectedMonth = fromDateKey(selectedDate).getMonth();
+  const monthLabel = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(fromDateKey(selectedDate));
+  const selectedFocusDays = focusDays.filter((day) => day.date === selectedDate);
+  const nextExam = examPlans.filter((plan) => plan.examDate >= todayKey()).sort((a, b) => a.examDate.localeCompare(b.examDate))[0];
+
+  return (
+    <div className="exam-layout">
+      <section className="exam-hero">
+        <div>
+          <span>
+            <GraduationCap size={17} />
+            Preparación de exámenes
+          </span>
+          <h2>Planifica días completos de focus por asignatura.</h2>
+          <p>Separa la preparación por materia, evita mezclar mil tareas y decide qué asignatura toca cada día.</p>
+        </div>
+        <strong>{nextExam ? `Próximo: ${nextExam.title} · ${formatDate(nextExam.examDate, "short")}` : "Añade tus fechas de examen"}</strong>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={GraduationCap} title="Añadir examen" />
+        <div className="exam-form">
+          <select value={examDraft.courseId} onChange={(event) => setExamDraft({ ...examDraft, courseId: event.target.value })}>
+            <option value="">Asignatura manual</option>
+            {calendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name}</option>)}
+          </select>
+          <input value={examDraft.title} placeholder="Nombre si no eliges asignatura" onChange={(event) => setExamDraft({ ...examDraft, title: event.target.value })} />
+          <input type="date" value={examDraft.examDate} onChange={(event) => setExamDraft({ ...examDraft, examDate: event.target.value })} />
+          <input value={examDraft.notes} placeholder="Temas, aula, formato..." onChange={(event) => setExamDraft({ ...examDraft, notes: event.target.value })} />
+          <button className="primary" onClick={addExamPlan}>
+            <Plus size={18} />
+            Añadir
+          </button>
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader icon={Sparkles} title="Asignar días de focus" />
+        <div className="exam-form focus-day-form">
+          <input type="date" value={focusDraft.startDate} onChange={(event) => setFocusDraft({ ...focusDraft, startDate: event.target.value })} />
+          <input type="date" value={focusDraft.endDate} onChange={(event) => setFocusDraft({ ...focusDraft, endDate: event.target.value })} />
+          <select value={focusDraft.courseId} onChange={(event) => setFocusDraft({ ...focusDraft, courseId: event.target.value })}>
+            <option value="">Asignatura manual</option>
+            {calendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name}</option>)}
+          </select>
+          <input value={focusDraft.title} placeholder="Focus: Energy Systems, Signals..." onChange={(event) => setFocusDraft({ ...focusDraft, title: event.target.value })} />
+          <input value={focusDraft.notes} placeholder="Qué hacer ese día" onChange={(event) => setFocusDraft({ ...focusDraft, notes: event.target.value })} />
+          <button className="primary" onClick={addFocusDays}>
+            <Plus size={18} />
+            Crear focus
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={GraduationCap} title="Exámenes" />
+        <div className="exam-stack">
+          {examPlans.length === 0 ? <Empty text="Añade tus exámenes para ver cuenta atrás por asignatura." /> : examPlans.map((plan) => {
+            const daysLeft = Math.ceil((fromDateKey(plan.examDate).getTime() - fromDateKey(todayKey()).getTime()) / 86_400_000);
+            return (
+              <article key={plan.id} className="exam-card" style={{ borderColor: plan.color }}>
+                <div>
+                  <strong>{plan.title}</strong>
+                  <span>{formatDate(plan.examDate)} · {daysLeft >= 0 ? `${daysLeft} días` : "pasado"}</span>
+                  {plan.notes && <small>{plan.notes}</small>}
+                </div>
+                <button title="Eliminar examen" onClick={() => deleteExamPlan(plan.id)}>
+                  <Trash2 size={16} />
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader icon={CalendarDays} title={formatDate(selectedDate)} />
+        <div className="exam-stack">
+          {selectedFocusDays.length === 0 ? <Empty text="Este día no tiene focus asignado." /> : selectedFocusDays.map((day) => (
+            <article key={day.id} className="exam-card focus-card" style={{ borderColor: day.color, background: softBackground(day.color, "#eef8ff") }}>
+              <div>
+                <strong>Todo el día: {day.title}</strong>
+                <span>{day.notes || "Día completo de preparación"}</span>
+              </div>
+              <button title="Eliminar focus" onClick={() => deleteFocusDay(day.id)}>
+                <Trash2 size={16} />
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel wide exam-calendar-panel">
+        <div className="calendar-toolbar">
+          <div>
+            <h2>{monthLabel}</h2>
+            <span>Días de focus y fechas de examen</span>
+          </div>
+          <div className="period-switcher">
+            <button onClick={() => setSelectedDate(addDays(selectedDate, -28))}>
+              <ChevronLeft size={16} />
+              Mes
+            </button>
+            <button onClick={() => setSelectedDate(todayKey())}>Hoy</button>
+            <button onClick={() => setSelectedDate(addDays(selectedDate, 28))}>
+              Mes
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="month-weekdays">
+          {weekdays.map((day) => <span key={day}>{day}</span>)}
+        </div>
+        <div className="month-grid exam-month-grid">
+          {monthDays.map((day) => {
+            const isOutsideMonth = fromDateKey(day).getMonth() !== selectedMonth;
+            const dayFocus = focusDays.filter((focusDay) => focusDay.date === day);
+            const dayExams = examPlans.filter((plan) => plan.examDate === day);
+            return (
+              <button
+                key={day}
+                className={`${isOutsideMonth ? "month-day outside" : "month-day"}${day === todayKey() ? " today" : ""}${day === selectedDate ? " selected" : ""}`}
+                onClick={() => setSelectedDate(day)}
+              >
+                <header>
+                  <strong>{fromDateKey(day).getDate()}</strong>
+                  <span>{formatDate(day, "short")}</span>
+                </header>
+                <div className="month-events">
+                  {dayFocus.slice(0, 3).map((focusDay) => (
+                    <span key={focusDay.id} className="focus-pill" style={{ borderColor: focusDay.color, background: softBackground(focusDay.color, "#eef8ff") }}>
+                      Focus · {focusDay.title}
+                    </span>
+                  ))}
+                  {dayExams.map((plan) => (
+                    <span key={plan.id} className="exam-pill" style={{ borderColor: plan.color }}>
+                      Examen · {plan.title}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </section>
     </div>
   );

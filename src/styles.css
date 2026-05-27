@@ -409,6 +409,7 @@ textarea {
 .routine-layout,
 .calendar-layout,
 .courses-layout,
+.exam-layout,
 .sport-layout,
 .platforms-layout,
 .ai-layout,
@@ -1225,6 +1226,145 @@ textarea {
   margin: -6px 0 12px;
 }
 
+.exam-hero {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 30px;
+  border: 1px solid #b8d8ef;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(238, 248, 255, 0.96), rgba(255, 255, 255, 0.94)),
+    radial-gradient(circle at 90% 16%, rgba(21, 127, 99, 0.15), transparent 34%);
+  box-shadow: var(--shadow);
+}
+
+.exam-hero span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.exam-hero h2 {
+  max-width: 780px;
+  margin-top: 10px;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.exam-hero p {
+  max-width: 680px;
+  margin-top: 12px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.exam-hero strong {
+  flex: 0 0 auto;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--blue);
+  box-shadow: inset 0 0 0 1px #b8d8ef;
+}
+
+.exam-form {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.9fr) minmax(220px, 1fr) 150px minmax(220px, 1fr) 120px;
+  gap: 10px;
+}
+
+.focus-day-form {
+  grid-template-columns: 150px 150px minmax(170px, 0.8fr) minmax(220px, 1fr) minmax(220px, 1fr) 130px;
+}
+
+.exam-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.exam-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.exam-card div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.exam-card strong,
+.exam-card span,
+.exam-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-card span,
+.exam-card small {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.exam-card button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #f7e5df;
+  color: var(--accent-dark);
+}
+
+.exam-calendar-panel {
+  overflow-x: auto;
+}
+
+.exam-month-grid .month-day {
+  min-height: 150px;
+  text-align: left;
+}
+
+.exam-month-grid .month-day.selected {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 2px #b8e2fb;
+}
+
+.focus-pill,
+.exam-pill {
+  display: block;
+  overflow: hidden;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-pill {
+  background: #fff0eb;
+}
+
 .plans-hero {
   grid-column: 1 / -1;
   display: grid;
@@ -1938,6 +2078,8 @@ textarea {
   .timer-form,
   .recipe-form,
   .money-form,
+  .exam-form,
+  .focus-day-form,
   .settings-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1991,6 +2133,7 @@ textarea {
   .routine-layout,
   .calendar-layout,
     .courses-layout,
+    .exam-layout,
     .sport-layout,
     .platforms-layout,
     .ai-layout,
@@ -2086,6 +2229,8 @@ textarea {
     .timer-form,
     .recipe-form,
     .money-form,
+    .exam-form,
+    .focus-day-form,
     .settings-grid,
     .split-fields,
     .platform-grid,
@@ -2100,6 +2245,12 @@ textarea {
   }
 
   .plans-hero {
+    padding: 24px;
+  }
+
+  .exam-hero {
+    align-items: flex-start;
+    flex-direction: column;
     padding: 24px;
   }
 
